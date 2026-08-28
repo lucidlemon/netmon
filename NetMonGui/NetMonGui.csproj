@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon></ApplicationIcon>
+    <AssemblyName>NetMonGui</AssemblyName>
+    <RootNamespace>NetMonGui</RootNamespace>
+
+    <!-- Bumped before each release; CI reads this to tag and version the Velopack release. -->
+    <Version>1.0.0</Version>
+
+    <!-- Standalone single-file exe settings (used by `dotnet publish` locally / Build-NetMonGui.bat).
+         The Velopack release build (see .github/workflows/release.yml) overrides PublishSingleFile
+         to false with -p:PublishSingleFile=false, since Velopack needs a normal multi-file publish
+         output to package and delta-patch between versions. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile Condition="'$(PublishSingleFile)' == ''">true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- App.xaml is normally auto-treated as ApplicationDefinition, which makes WPF's build
+         generate its own Main(). We provide a custom Main (App.xaml.cs) so Velopack can hook
+         startup before anything else runs, so App.xaml needs to be a plain Page instead. -->
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.1.16" />
+    <PackageReference Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      TraceEvent ships KernelTraceControl.dll as a plain "content" file (build\native\amd64),
+      not through the runtimes\{rid}\native convention, so `dotnet publish` with
+      PublishSingleFile doesn't bundle it and the kernel ETW session fails at runtime with
+      "the specified module could not be found". Embedding it and extracting it ourselves
+      (see ProcessBandwidthService) works regardless of publish mode.
+    -->
+    <EmbeddedResource Include="Native\KernelTraceControl.dll" LogicalName="KernelTraceControl.dll" />
+  </ItemGroup>
+
+</Project>

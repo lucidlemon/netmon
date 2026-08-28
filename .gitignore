@@ -1,0 +1,22 @@
+# Build outputs
+bin/
+obj/
+Releases/
+publish/
+
+# The prebuilt portable exe - built by CI / Build-NetMonGui.bat, not committed
+/NetMonGui.exe
+
+# KernelTraceControl.dll self-extracts here next to whatever exe is running
+# (see ProcessBandwidthService.EnsureNativeDependencyExtracted)
+/amd64/
+
+# Velopack packaging tool cache
+.vpk/
+
+# IDE
+.vs/
+*.user
+
+# Claude Code local settings (personal, not project config)
+.claude/

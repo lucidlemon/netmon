@@ -1,0 +1,65 @@
+name: Release
+
+# Runs every push to main. Bump <Version> in NetMonGui.csproj before merging when you actually
+# want to cut a new release - vpk will fail the upload if that exact version's tag already
+# exists on GitHub, so pushes that don't bump it are effectively no-ops that just fail loudly.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from csproj
+        id: get-version
+        shell: bash
+        run: echo "version=$(grep -oE '<Version>[^<]+' NetMonGui/NetMonGui.csproj | sed 's/<Version>//')" >> "$GITHUB_OUTPUT"
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install vpk (Velopack CLI)
+        run: dotnet tool install -g vpk
+
+      - name: Publish app (multi-file - Velopack needs this, not the single-file bundle)
+        run: dotnet publish NetMonGui/NetMonGui.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=false -o publish/app
+
+      - name: Publish standalone portable exe (no auto-update, just a single file)
+        run: dotnet publish NetMonGui/NetMonGui.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish/portable
+
+      - name: Rename portable exe with version
+        shell: bash
+        run: cp publish/portable/NetMonGui.exe "publish/portable/NetMonGui-portable-v${{ steps.get-version.outputs.version }}.exe"
+
+      - name: Fetch previous release (lets vpk build delta patches)
+        run: vpk download github --repoUrl https://github.com/${{ github.repository }}
+        continue-on-error: true
+
+      - name: Pack Velopack release
+        run: >
+          vpk pack -u NetMonGui -v ${{ steps.get-version.outputs.version }}
+          -p publish/app -e NetMonGui.exe
+          --packTitle "NetMon" --packAuthors "${{ github.repository_owner }}"
+
+      - name: Publish release to GitHub (Setup.exe + auto-update feed)
+        run: >
+          vpk upload github --repoUrl https://github.com/${{ github.repository }}
+          --publish --releaseName "NetMon v${{ steps.get-version.outputs.version }}"
+          --tag v${{ steps.get-version.outputs.version }}
+
+      - name: Attach the portable exe to the same release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release upload v${{ steps.get-version.outputs.version }}
+          "publish/portable/NetMonGui-portable-v${{ steps.get-version.outputs.version }}.exe"
+          --repo ${{ github.repository }}

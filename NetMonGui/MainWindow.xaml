@@ -1,0 +1,299 @@
+<Window x:Class="NetMonGui.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="NetMon — which connection is better?"
+        Height="900" Width="1360" MinHeight="700" MinWidth="1200"
+        Background="#FF1A1A1E" Foreground="#FFE6E6E6"
+        FontFamily="Consolas" FontSize="13">
+
+    <Window.Resources>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#FF26262C"/>
+            <Setter Property="Foreground" Value="#FFCFCFCF"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderBrush" Value="#FF3A3A42"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        </Style>
+        <Style TargetType="DataGridCell">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Foreground" Value="#FFE6E6E6"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#FF33333C"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style TargetType="Button" x:Key="PreferButtonStyle">
+            <Setter Property="Background" Value="#FF2E3B4E"/>
+            <Setter Property="Foreground" Value="#FFCFE3FF"/>
+            <Setter Property="BorderBrush" Value="#FF4A6482"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SegmentOptionStyle" TargetType="RadioButton">
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="Foreground" Value="#FF8A8A92"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bg" Background="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#FF2E3B4E"/>
+                                <Setter Property="Foreground" Value="#FFCFE3FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="200"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="200"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="False">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                <TextBlock Text="NetMon" FontSize="20" FontWeight="Bold" Foreground="#FF8FD3FF" VerticalAlignment="Center"/>
+                <TextBlock Text="which connection is better for gaming?" FontSize="12" Foreground="#FF8A8A92" Margin="10,4,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                <TextBlock Text="Target:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FF8A8A92"/>
+                <TextBox x:Name="TargetBox" Width="110" Text="1.1.1.1" VerticalContentAlignment="Center"
+                         Background="#FF26262C" Foreground="#FFE6E6E6" BorderBrush="#FF3A3A42" Padding="4,3"/>
+                <Button x:Name="ApplyTargetButton" Content="Apply" Margin="6,0,18,0" Padding="8,3"
+                        Style="{StaticResource PreferButtonStyle}" Click="ApplyTargetButton_Click"/>
+                <CheckBox x:Name="PerProcessCheckBox" Content="Per-process bandwidth" VerticalAlignment="Center"
+                          Foreground="#FF8A8A92" Margin="0,0,18,0"
+                          ToolTip="Needs administrator rights — NetMon will restart elevated if it isn't already."
+                          Checked="PerProcessCheckBox_Checked" Unchecked="PerProcessCheckBox_Unchecked"/>
+                <TextBlock Text="Session:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FF8A8A92"/>
+                <TextBlock x:Name="SessionTimeText" Text="00:00:00" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            </StackPanel>
+        </DockPanel>
+
+        <DockPanel Grid.Row="1" Margin="0,0,0,8" LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left" x:Name="StatusText" Text="Discovering network adapters…"
+                       Foreground="#FF8A8A92"/>
+            <TextBlock DockPanel.Dock="Right" x:Name="UpdateStatusText" Text=""
+                       Foreground="#FF8FD3FF" Visibility="Collapsed"/>
+        </DockPanel>
+
+        <!-- Adapter cards - one per active connection, always splitting the available width evenly -->
+        <ItemsControl Grid.Row="2" x:Name="AdapterCards" VerticalAlignment="Top">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Rows="1"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1" CornerRadius="8"
+                            Margin="6" Padding="16">
+                        <StackPanel>
+                            <!-- name / marker / OS badge -->
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Marker}" Foreground="Gold" FontWeight="Bold" FontSize="15"
+                                           Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <Border Width="10" Height="10" CornerRadius="5" Background="{Binding Color}"
+                                        Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="15"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding Description}" Foreground="#FF8A8A92" FontSize="11"
+                                       Margin="0,3,0,14" TextTrimming="CharacterEllipsis"/>
+
+                            <!-- current latency, front and center -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
+                                <TextBlock Text="{Binding NowMs}" FontSize="42" FontWeight="Bold" Foreground="{Binding NowBrush}"/>
+                                <TextBlock Text="ms" FontSize="16" Foreground="{Binding NowBrush}"
+                                           VerticalAlignment="Bottom" Margin="4,0,0,8"/>
+                            </StackPanel>
+
+                            <!-- 30s / 1h / session breakdown -->
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="30s" Foreground="#FF6E6E76" FontSize="11"
+                                           VerticalAlignment="Center" Margin="0,0,10,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Win30}" Foreground="{Binding Win30Brush}"
+                                           FontSize="12" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Loss30}" Foreground="{Binding Loss30Brush}"
+                                           FontSize="12" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="1h" Foreground="#FF6E6E76" FontSize="11"
+                                           VerticalAlignment="Center" Margin="0,0,10,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Win1h}" Foreground="{Binding Win1hBrush}"
+                                           FontSize="12" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Loss1h}" Foreground="{Binding Loss1hBrush}"
+                                           FontSize="12" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="session" Foreground="#FF6E6E76" FontSize="11"
+                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Session}" Foreground="{Binding SessionBrush}"
+                                           FontSize="12"/>
+                                <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding LossSession}" Foreground="{Binding LossSessionBrush}"
+                                           FontSize="12" HorizontalAlignment="Right"/>
+                            </Grid>
+
+                            <Button Content="Prefer this adapter" Style="{StaticResource PreferButtonStyle}"
+                                    HorizontalAlignment="Stretch" Margin="0,16,0,0" Padding="8,6"
+                                    Tag="{Binding}" Click="PreferButton_Click"/>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Grid.Row="3" Margin="2,8,0,0" Foreground="#FF6E6E76" FontSize="11">
+            ★ = currently the better connection (lowest session avg/jitter/loss score)    [OS] = the connection Windows is currently routing internet traffic through &#8212; these can disagree.
+        </TextBlock>
+
+        <!-- Latency chart -->
+        <Border Grid.Row="4" Margin="0,12,0,0" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="160"/>
+                </Grid.ColumnDefinitions>
+                <Canvas x:Name="LatencyChartCanvas" Grid.Column="0" Margin="8" ClipToBounds="True"
+                        SizeChanged="ChartCanvas_SizeChanged"/>
+                <StackPanel x:Name="LatencyLegendPanel" Grid.Column="1" Margin="4,10,10,10"/>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="5" Margin="2,6,0,0" Foreground="#FF6E6E76" FontSize="11"
+                    Text="Latency over the last 2 minutes, per adapter (ms)."/>
+
+        <!-- Jitter chart -->
+        <Border Grid.Row="6" Margin="0,12,0,0" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="160"/>
+                </Grid.ColumnDefinitions>
+                <Canvas x:Name="JitterChartCanvas" Grid.Column="0" Margin="8" ClipToBounds="True"
+                        SizeChanged="ChartCanvas_SizeChanged"/>
+                <StackPanel x:Name="JitterLegendPanel" Grid.Column="1" Margin="4,10,10,10"/>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="7" Margin="2,6,0,0" Foreground="#FF6E6E76" FontSize="11"
+                    Text="Jitter over the last 2 minutes, per adapter (ms) — change from one ping to the next."/>
+
+        <!-- Per-process bandwidth (only visible once enabled) -->
+        <Border Grid.Row="8" x:Name="ProcessPanel" Margin="0,12,0,0" Background="#FF1F1F24"
+                BorderBrush="#FF3A3A42" BorderThickness="1" Visibility="Collapsed">
+            <Grid Margin="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <DockPanel Grid.Row="0" Margin="4,0,0,6" LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Foreground="#FF8FD3FF" FontWeight="SemiBold" VerticalAlignment="Center"
+                               Text="Top 10 network processes — what might be causing the lag"/>
+                    <Border DockPanel.Dock="Right" Background="#FF16161A" BorderBrush="#FF3A3A42" BorderThickness="1"
+                            CornerRadius="5" Padding="2">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="SortByCurrentRadio" Content="Current" GroupName="ProcessSortMode"
+                                         IsChecked="True" Style="{StaticResource SegmentOptionStyle}"
+                                         Checked="ProcessSortMode_Checked"
+                                         ToolTip="Rank by current send+receive rate"/>
+                            <RadioButton x:Name="SortByTotalRadio" Content="Total" GroupName="ProcessSortMode"
+                                         Style="{StaticResource SegmentOptionStyle}"
+                                         Checked="ProcessSortMode_Checked"
+                                         ToolTip="Rank by total data moved this session"/>
+                        </StackPanel>
+                    </Border>
+                </DockPanel>
+                <DataGrid Grid.Row="1" x:Name="ProcessGrid" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="320"
+                          Background="Transparent" BorderThickness="0" RowBackground="Transparent"
+                          AlternatingRowBackground="#FF232328" HeadersVisibility="Column" GridLinesVisibility="None"
+                          CanUserAddRows="False" CanUserResizeRows="False" CanUserSortColumns="False"
+                          SelectionMode="Single" RowHeight="28">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Process" Binding="{Binding ProcessName}" Width="240">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/></Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="70">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/></Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="↓ Down" Binding="{Binding DownDisplay}" Width="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/></Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="↑ Up" Binding="{Binding UpDisplay}" Width="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/></Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Rate" Binding="{Binding RateTotalDisplay}" Width="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/></Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Session data" Binding="{Binding SessionDataDisplay}" Width="*" MinWidth="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+    </Grid>
+    </ScrollViewer>
+</Window>
