@@ -6,6 +6,7 @@ public sealed class ProcessBandwidthRowViewModel
     public required string ProcessName { get; init; }
     public required double DownKBs { get; init; }
     public required double UpKBs { get; init; }
+    public required double Avg30KBs { get; init; }
     public required long TotalSentBytes { get; init; }
     public required long TotalRecvBytes { get; init; }
 
@@ -15,6 +16,7 @@ public sealed class ProcessBandwidthRowViewModel
     public string DownDisplay => FormatRate(DownKBs);
     public string UpDisplay => FormatRate(UpKBs);
     public string RateTotalDisplay => FormatRate(RateTotalKBs);
+    public string Avg30Display => FormatRate(Avg30KBs);
     public string SessionDataDisplay => FormatBytes(SessionTotalBytes);
 
     private static string FormatRate(double kbs) =>

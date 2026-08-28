@@ -57,8 +57,12 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ProcessBandwidthRowViewModel> _processRows = new();
     private readonly Dictionary<int, TrackedProcess> _knownProcesses = new();
     private bool _perProcessEnabled;
-    private bool _sortByTotalTraffic;
+    private ProcessSortMode _sortMode = ProcessSortMode.Current;
     private DateTime _lastBandwidthDrain;
+
+    private const int Avg30WindowSeconds = 30;
+
+    private enum ProcessSortMode { Current, Avg30, Total }
 
     public MainWindow()
     {
@@ -359,7 +363,9 @@ public partial class MainWindow : Window
 
     private void ProcessSortMode_Checked(object sender, RoutedEventArgs e)
     {
-        _sortByTotalTraffic = sender == SortByTotalRadio;
+        _sortMode = sender == SortByTotalRadio ? ProcessSortMode.Total
+            : sender == SortByAvg30Radio ? ProcessSortMode.Avg30
+            : ProcessSortMode.Current;
         RenderProcessRows();
     }
 
@@ -421,20 +427,13 @@ public partial class MainWindow : Window
         double elapsedSec = Math.Max(0.001, (now - _lastBandwidthDrain).TotalSeconds);
         _lastBandwidthDrain = now;
 
-        // A process with no bytes this tick simply won't appear in the drain below - reset its
-        // current rate to 0 so it doesn't keep showing a stale rate once it's gone quiet. Its
-        // lifetime total (tracked separately) is untouched, so it stays in the list.
-        foreach (var tracked in _knownProcesses.Values)
-        {
-            tracked.DownKBs = 0;
-            tracked.UpKBs = 0;
-        }
-
+        var thisTickBytes = new Dictionary<int, long>();
         foreach (var (pid, sent, recv) in _bandwidthService.DrainSnapshot())
         {
             var tracked = GetOrCreateTracked(pid);
             tracked.DownKBs = recv / 1024.0 / elapsedSec;
             tracked.UpKBs = sent / 1024.0 / elapsedSec;
+            thisTickBytes[pid] = sent + recv;
         }
 
         foreach (var (pid, sent, recv) in _bandwidthService.GetLifetimeTotals())
@@ -442,6 +441,26 @@ public partial class MainWindow : Window
             var tracked = GetOrCreateTracked(pid);
             tracked.TotalSentBytes = sent;
             tracked.TotalRecvBytes = recv;
+        }
+
+        // Every known process gets a sample every tick (0 if it was quiet), including ones with
+        // no bytes this tick - that's what makes the 30s average reflect a spike that has since
+        // gone quiet, rather than only ever showing the instantaneous rate.
+        var cutoff = now.AddSeconds(-Avg30WindowSeconds);
+        foreach (var tracked in _knownProcesses.Values)
+        {
+            if (!thisTickBytes.ContainsKey(tracked.Pid))
+            {
+                tracked.DownKBs = 0;
+                tracked.UpKBs = 0;
+            }
+
+            thisTickBytes.TryGetValue(tracked.Pid, out long bytesThisTick);
+            tracked.RecentSamples.Add((now, bytesThisTick));
+            while (tracked.RecentSamples.Count > 0 && tracked.RecentSamples[0].Time < cutoff)
+            {
+                tracked.RecentSamples.RemoveAt(0);
+            }
         }
 
         RenderProcessRows();
@@ -458,7 +477,12 @@ public partial class MainWindow : Window
     private void RenderProcessRows()
     {
         var ranked = _knownProcesses.Values
-            .OrderByDescending(t => _sortByTotalTraffic ? t.TotalSentBytes + t.TotalRecvBytes : (long)((t.DownKBs + t.UpKBs) * 1024))
+            .OrderByDescending(t => _sortMode switch
+            {
+                ProcessSortMode.Total => t.TotalSentBytes + t.TotalRecvBytes,
+                ProcessSortMode.Avg30 => (long)(t.Avg30KBs * 1024),
+                _ => (long)((t.DownKBs + t.UpKBs) * 1024),
+            })
             .Take(MaxProcessRows)
             .Select(t => new ProcessBandwidthRowViewModel
             {
@@ -466,6 +490,7 @@ public partial class MainWindow : Window
                 ProcessName = t.ProcessName,
                 DownKBs = t.DownKBs,
                 UpKBs = t.UpKBs,
+                Avg30KBs = t.Avg30KBs,
                 TotalSentBytes = t.TotalSentBytes,
                 TotalRecvBytes = t.TotalRecvBytes,
             });
@@ -482,6 +507,19 @@ public partial class MainWindow : Window
         public double UpKBs { get; set; }
         public long TotalSentBytes { get; set; }
         public long TotalRecvBytes { get; set; }
+        public List<(DateTime Time, long Bytes)> RecentSamples { get; } = new();
+
+        public double Avg30KBs
+        {
+            get
+            {
+                if (RecentSamples.Count == 0) return 0;
+                double windowSec = Math.Max(1.0, Math.Min(Avg30WindowSeconds,
+                    (RecentSamples[^1].Time - RecentSamples[0].Time).TotalSeconds));
+                long totalBytes = RecentSamples.Sum(s => s.Bytes);
+                return totalBytes / 1024.0 / windowSec;
+            }
+        }
     }
 
     private static string ResolveProcessName(int pid)

@@ -3,6 +3,16 @@
 [![CI](https://github.com/lucidlemon/netmon/actions/workflows/ci.yml/badge.svg)](https://github.com/lucidlemon/netmon/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/lucidlemon/netmon)](https://github.com/lucidlemon/netmon/releases/latest)
 
+> **⚠️ Disclaimer:** This app is **100% vibecoded** — written by an AI
+> ([Claude](https://claude.com/claude-code)) from natural-language instructions,
+> with no professional security or code audit. It's a hobby project, provided
+> **as-is, with no warranty of any kind**. I (the author) take **no
+> responsibility for any damage, data loss, security issue, or other harm**
+> that may result from downloading, building, or running it. Review the code
+> yourself if that matters to you — it's all in this repo. See
+> [Security scanning](#security-scanning) below for what's automatically
+> checked, and use at your own risk.
+
 Two versions live here:
 
 - **NetMonGui** — a standalone desktop app with a live table *and* a latency
@@ -28,6 +38,18 @@ internet traffic (based on route + interface metric) is marked `[OS]` — these
 two can disagree, e.g. Windows may default to Ethernet by metric even while
 your hotspot is measurably better, in which case Dota 2/CS2 (and everything
 else) are routing over the worse link without you knowing.
+
+![NetMonGui showing three live connections — Ethernet, Wi-Fi, and an iPhone hotspot — with latency/jitter graphs and per-process bandwidth](docs/screenshot.png)
+
+**Admin rights**: NetMon runs unprivileged by default and never asks for
+elevation on its own. It only prompts for admin (a UAC dialog) when *you*
+click something that needs it:
+- **"Prefer this adapter"** — needs admin to change the adapter's network
+  metric. See [Adapter priority](#adapter-priority).
+- **"Per-process bandwidth"** — needs the whole app running elevated to read
+  per-process network activity. See [Per-process bandwidth](#per-process-bandwidth).
+
+Nothing else in the app ever touches either.
 
 ## NetMonGui — desktop app
 
@@ -144,6 +166,30 @@ The app checks this repo's Releases for updates on every startup
 via `Setup.exe` (the portable exe and `dotnet run` are no-ops here, there's
 nothing to update in place). It's all best-effort: no network, GitHub rate
 limits, or no releases yet all fail silently rather than bothering you.
+
+## Security scanning
+
+Since this is vibecoded (see the disclaimer up top) and I'm not a security
+professional, the repo runs GitHub's free automated checks on every push, all
+configured under [`.github/`](.github/):
+
+- **[CodeQL](.github/workflows/codeql.yml)** — static analysis for common
+  vulnerability patterns (injection, unsafe deserialization, etc.), on every
+  push/PR to `main` plus a weekly scheduled scan. Results show up under the
+  repo's **Security → Code scanning** tab.
+- **[Dependabot](.github/dependabot.yml)** — weekly checks for known CVEs in
+  NuGet packages and GitHub Actions versions, opens a PR automatically when
+  one needs bumping. Results under **Security → Dependabot**.
+- **Secret scanning** — GitHub's own, on by default for public repos, no
+  config needed; flags anything that looks like a committed credential.
+
+None of this is a substitute for a real audit, and none of it looks at the
+things that matter most here — like whether "click this button to have
+Windows change your route metric" or "restart elevated to read per-process
+ETW data" are things *you're* comfortable with an app doing. Read
+[Adapter priority](#adapter-priority) and
+[Per-process bandwidth](#per-process-bandwidth) above and judge that part
+yourself.
 
 ## Console version (netmon.ps1)
 

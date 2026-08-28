@@ -6,12 +6,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon></ApplicationIcon>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AssemblyName>NetMonGui</AssemblyName>
     <RootNamespace>NetMonGui</RootNamespace>
 
     <!-- Bumped before each release; CI reads this to tag and version the Velopack release. -->
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
 
     <!-- Standalone single-file exe settings (used by `dotnet publish` locally / Build-NetMonGui.bat).
          The Velopack release build (see .github/workflows/release.yml) overrides PublishSingleFile
@@ -24,6 +24,12 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DebugType>none</DebugType>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- So the Window's runtime/taskbar icon (set via Icon="Assets/icon.ico" in MainWindow.xaml)
+         resolves as a pack URI. ApplicationIcon above only covers the compiled exe's file icon. -->
+    <Resource Include="Assets\icon.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- App.xaml is normally auto-treated as ApplicationDefinition, which makes WPF's build
