@@ -41,7 +41,9 @@ jobs:
         run: cp publish/portable/NetMonGui.exe "publish/portable/NetMonGui-portable-v${{ steps.get-version.outputs.version }}.exe"
 
       - name: Fetch previous release (lets vpk build delta patches)
-        run: vpk download github --repoUrl https://github.com/${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: vpk download github --repoUrl https://github.com/${{ github.repository }} --token $env:GH_TOKEN
         continue-on-error: true
 
       - name: Pack Velopack release
@@ -51,8 +53,11 @@ jobs:
           --packTitle "NetMon" --packAuthors "${{ github.repository_owner }}"
 
       - name: Publish release to GitHub (Setup.exe + auto-update feed)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
           vpk upload github --repoUrl https://github.com/${{ github.repository }}
+          --token $env:GH_TOKEN
           --publish --releaseName "NetMon v${{ steps.get-version.outputs.version }}"
           --tag v${{ steps.get-version.outputs.version }}
 
