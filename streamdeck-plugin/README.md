@@ -1,8 +1,10 @@
 # NetMon Stream Deck plugin
 
-Shows live ping or jitter for one of NetMonGui's monitored connections on a
-Stream Deck key — color-coded using the same shooters/MOBA/casual (ping) and
-excellent/good/noticeable (jitter) tiers as the app's own charts.
+Shows live ping or jitter for one of NetMonGui's monitored connections —
+against the app's default target or any extra target you've added in the app
+(e.g. a game server's datacenter) — on a Stream Deck key, color-coded using
+the same shooters/MOBA/casual (ping) and excellent/good/noticeable (jitter)
+tiers as the app's own charts.
 
 It talks to NetMonGui over a tiny local JSON API
 (`http://127.0.0.1:47115/api/status`, see
@@ -44,9 +46,11 @@ streamdeck restart com.danielwinter.netmon
 ```
 
 Then in the Stream Deck app, drag the **NetMon → Connection Stat** action
-onto a key, and in its property inspector pick a connection (populated from
-NetMon's live adapter list) and Ping or Jitter. Add another instance of the
-action for each connection/metric you want on its own key.
+onto a key, and in its property inspector pick a Target, Connection (both
+populated live from NetMon), and Ping or Jitter. Add another instance of the
+action for each target/connection/metric combination you want on its own
+key — e.g. one key for your default target's ping, another for a game
+server's ping on the same connection.
 
 ## How it's verified
 
@@ -70,6 +74,6 @@ src/
 com.danielwinter.netmon.sdPlugin/
   manifest.json
   bin/plugin.js           built output (gitignored)
-  ui/connection-stat.html property inspector (connection + metric picker)
+  ui/connection-stat.html property inspector (target + connection + metric picker)
   imgs/                    icons (gen-icons.py regenerates these)
 ```

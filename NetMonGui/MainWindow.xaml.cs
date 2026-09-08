@@ -64,6 +64,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, AdapterRowViewModel> _rows = new();
     private readonly Dictionary<string, Brush> _colorByName = new();
     private readonly ObservableCollection<AdapterRowViewModel> _rowsView = new();
+    private readonly List<TargetSection> _extraSections = new();
 
     private readonly DispatcherTimer _timer;
     private DateTime _startTime;
@@ -131,6 +132,144 @@ public partial class MainWindow : Window
         StatusText.Text = $"Target changed to {_target}.";
     }
 
+    private void AddTargetButton_Click(object sender, RoutedEventArgs e)
+    {
+        var host = NewTargetHostBox.Text.Trim();
+        if (host.Length == 0)
+        {
+            StatusText.Text = "Enter a host or IP for the new target.";
+            return;
+        }
+
+        var label = NewTargetLabelBox.Text.Trim();
+        if (label.Length == 0) label = host;
+
+        var target = new PingTarget { Id = Guid.NewGuid().ToString("N"), Label = label, Host = host };
+        var section = BuildTargetSection(target);
+        _extraSections.Add(section);
+        ExtraTargetsHost.Children.Add(section.RootElement);
+
+        NewTargetLabelBox.Clear();
+        NewTargetHostBox.Clear();
+        StatusText.Text = $"Added target \"{label}\" ({host}) — first ping lands within a second.";
+
+        // Populate its adapters immediately rather than waiting for the next periodic
+        // SyncMonitors() call (up to RediscoverEverySec away).
+        try
+        {
+            var active = NetworkInfoService.GetActiveInterfaces();
+            SyncSectionMonitors(active, section.Monitors, section.Rows, section.RowsView);
+        }
+        catch
+        {
+            // best effort - the next periodic SyncMonitors() will retry
+        }
+    }
+
+    private void RemoveExtraTarget(TargetSection section)
+    {
+        _extraSections.Remove(section);
+        ExtraTargetsHost.Children.Remove(section.RootElement);
+    }
+
+    /// <summary>
+    /// Builds a whole extra-target panel (header + compact adapter cards + latency/jitter charts)
+    /// entirely in code, reusing the same DrawChart/DrawGridlines/DrawThresholds/DrawSeries logic
+    /// as the default target's XAML-declared controls.
+    /// </summary>
+    private TargetSection BuildTargetSection(PingTarget target)
+    {
+        var content = new StackPanel();
+
+        var header = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 0, 0, 8) };
+        var titleText = new TextBlock
+        {
+            Text = $"{target.Label}  ({target.Host})",
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 14,
+            Foreground = new SolidColorBrush(Color.FromRgb(0x8F, 0xD3, 0xFF)),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        DockPanel.SetDock(titleText, Dock.Left);
+        header.Children.Add(titleText);
+
+        var removeButton = new Button
+        {
+            Content = "Remove",
+            Padding = new Thickness(10, 3, 10, 3),
+            Style = (Style)Resources["PreferButtonStyle"],
+        };
+        DockPanel.SetDock(removeButton, Dock.Right);
+        header.Children.Add(removeButton);
+        content.Children.Add(header);
+
+        var cards = new ItemsControl
+        {
+            ItemTemplate = (DataTemplate)Resources["CompactAdapterCardTemplate"],
+            ItemsPanel = (ItemsPanelTemplate)Resources["UniformRowPanelTemplate"],
+        };
+        content.Children.Add(cards);
+
+        var (latencyBorder, latencyCanvas, latencyLegend) = BuildChartBlock();
+        content.Children.Add(latencyBorder);
+        var (jitterBorder, jitterCanvas, jitterLegend) = BuildChartBlock();
+        content.Children.Add(jitterBorder);
+
+        var root = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0x1B, 0x1B, 0x20)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x42)),
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(0, 0, 0, 14),
+            Padding = new Thickness(10),
+            Child = content,
+        };
+
+        var section = new TargetSection
+        {
+            Target = target,
+            RootElement = root,
+            AdapterCards = cards,
+            LatencyCanvas = latencyCanvas,
+            LatencyLegend = latencyLegend,
+            JitterCanvas = jitterCanvas,
+            JitterLegend = jitterLegend,
+        };
+
+        cards.ItemsSource = section.RowsView;
+        latencyCanvas.SizeChanged += (_, _) => RedrawCharts(DateTime.Now);
+        jitterCanvas.SizeChanged += (_, _) => RedrawCharts(DateTime.Now);
+        removeButton.Click += (_, _) => RemoveExtraTarget(section);
+
+        return section;
+    }
+
+    private static (Border Border, Canvas Canvas, StackPanel Legend) BuildChartBlock()
+    {
+        var canvas = new Canvas { ClipToBounds = true, Margin = new Thickness(8) };
+        var legend = new StackPanel { Margin = new Thickness(4, 10, 10, 10) };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        Grid.SetColumn(canvas, 0);
+        Grid.SetColumn(legend, 1);
+        grid.Children.Add(canvas);
+        grid.Children.Add(legend);
+
+        var border = new Border
+        {
+            Height = 160,
+            Margin = new Thickness(0, 8, 0, 0),
+            Background = new SolidColorBrush(Color.FromRgb(0x1F, 0x1F, 0x24)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x42)),
+            BorderThickness = new Thickness(1),
+            Child = grid,
+        };
+
+        return (border, canvas, legend);
+    }
+
     private async void Timer_Tick(object? sender, EventArgs e)
     {
         if (_busy) return;
@@ -153,21 +292,14 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var pingTasks = _monitors
-                .Select(kv => (Name: kv.Key, SourceIp: kv.Value.SourceIp, Task: PingService.PingOnceAsync(kv.Value.SourceIp, _target, TimeoutMs)))
-                .ToList();
+            var defaultPingTask = PingAllAsync(_monitors, _target);
+            var extraPingTasks = _extraSections.Select(s => PingAllAsync(s.Monitors, s.Target.Host)).ToList();
+            await Task.WhenAll(extraPingTasks.Prepend(defaultPingTask));
+            var sampleTime = defaultPingTask.Result;
 
-            await Task.WhenAll(pingTasks.Select(t => t.Task));
-
-            var sampleTime = DateTime.Now;
-            foreach (var t in pingTasks)
-            {
-                if (!_monitors.TryGetValue(t.Name, out var mon)) continue;
-                var (ok, rtt) = t.Task.Result;
-                mon.RecordSample(ok, rtt, sampleTime);
-            }
-
-            StatusText.Text = $"Monitoring {_monitors.Count} adapter(s) against {_target}.";
+            StatusText.Text = _extraSections.Count == 0
+                ? $"Monitoring {_monitors.Count} adapter(s) against {_target}."
+                : $"Monitoring {_monitors.Count} adapter(s) against {_target} (+{_extraSections.Count} extra target(s)).";
             UpdateRows(sampleTime);
             RedrawCharts(sampleTime);
 
@@ -180,6 +312,25 @@ public partial class MainWindow : Window
         {
             _busy = false;
         }
+    }
+
+    private static async Task<DateTime> PingAllAsync(Dictionary<string, AdapterMonitor> monitors, string target)
+    {
+        var tasks = monitors
+            .Select(kv => (Name: kv.Key, Task: PingService.PingOnceAsync(kv.Value.SourceIp, target, TimeoutMs)))
+            .ToList();
+
+        await Task.WhenAll(tasks.Select(t => t.Task));
+
+        var sampleTime = DateTime.Now;
+        foreach (var t in tasks)
+        {
+            if (!monitors.TryGetValue(t.Name, out var mon)) continue;
+            var (ok, rtt) = t.Task.Result;
+            mon.RecordSample(ok, rtt, sampleTime);
+        }
+
+        return sampleTime;
     }
 
     private void SyncMonitors()
@@ -195,18 +346,28 @@ public partial class MainWindow : Window
             return;
         }
 
+        SyncSectionMonitors(active, _monitors, _rows, _rowsView);
+        foreach (var section in _extraSections)
+        {
+            SyncSectionMonitors(active, section.Monitors, section.Rows, section.RowsView);
+        }
+    }
+
+    private void SyncSectionMonitors(List<AdapterInfo> active, Dictionary<string, AdapterMonitor> monitors,
+        Dictionary<string, AdapterRowViewModel> rows, ObservableCollection<AdapterRowViewModel> rowsView)
+    {
         var activeNames = active.Select(a => a.Name).ToHashSet();
 
-        foreach (var name in _monitors.Keys.ToList())
+        foreach (var name in monitors.Keys.ToList())
         {
             if (activeNames.Contains(name)) continue;
-            _monitors.Remove(name);
-            if (_rows.Remove(name, out var row)) _rowsView.Remove(row);
+            monitors.Remove(name);
+            if (rows.Remove(name, out var row)) rowsView.Remove(row);
         }
 
         foreach (var a in active)
         {
-            if (_monitors.TryGetValue(a.Name, out var mon))
+            if (monitors.TryGetValue(a.Name, out var mon))
             {
                 mon.SourceIp = a.SourceIp;
                 mon.InterfaceIndex = a.InterfaceIndex;
@@ -220,7 +381,7 @@ public partial class MainWindow : Window
                 SourceIp = a.SourceIp,
                 InterfaceIndex = a.InterfaceIndex,
             };
-            _monitors[a.Name] = newMon;
+            monitors[a.Name] = newMon;
 
             var newRow = new AdapterRowViewModel
             {
@@ -229,8 +390,8 @@ public partial class MainWindow : Window
                 InterfaceIndex = a.InterfaceIndex,
                 Color = GetColorFor(a.Name),
             };
-            _rows[a.Name] = newRow;
-            _rowsView.Add(newRow);
+            rows[a.Name] = newRow;
+            rowsView.Add(newRow);
         }
     }
 
@@ -245,9 +406,42 @@ public partial class MainWindow : Window
 
     private void UpdateRows(DateTime now)
     {
+        var ifIndexToName = _monitors.Values.ToDictionary(m => m.InterfaceIndex, m => m.Name);
+        string? osPreferred = null;
+        try { osPreferred = NetworkInfoService.GetOsPreferredInterfaceName(ifIndexToName); }
+        catch { /* best effort */ }
+
+        var targets = new List<TargetStatusDto>
+        {
+            new("default", "Default", _target, UpdateRowsFor(_monitors, _rows, now, osPreferred)),
+        };
+
+        foreach (var section in _extraSections)
+        {
+            targets.Add(new TargetStatusDto(
+                section.Target.Id,
+                section.Target.Label,
+                section.Target.Host,
+                UpdateRowsFor(section.Monitors, section.Rows, now, osPreferred)));
+        }
+
+        _statsApi.UpdateSnapshot(new StatusDto(
+            DateTime.UtcNow,
+            targets,
+            LatencyThresholds.Select(t => new ThresholdDto(t.Ms, t.Label, ToHex(t.Color))).ToList(),
+            JitterThresholds.Select(t => new ThresholdDto(t.Ms, t.Label, ToHex(t.Color))).ToList()));
+    }
+
+    /// <summary>
+    /// Scores/refreshes every row for one target's set of adapter monitors (the default target's,
+    /// or one extra target's) and returns the equivalent DTOs for the local stats API.
+    /// </summary>
+    private List<AdapterStatDto> UpdateRowsFor(Dictionary<string, AdapterMonitor> monitors,
+        Dictionary<string, AdapterRowViewModel> rows, DateTime now, string? osPreferred)
+    {
         string? best = null;
         double bestScore = double.MaxValue;
-        foreach (var kv in _monitors)
+        foreach (var kv in monitors)
         {
             var s = kv.Value.GetSessionStats();
             if (!s.Avg.HasValue) continue;
@@ -260,16 +454,11 @@ public partial class MainWindow : Window
             }
         }
 
-        var ifIndexToName = _monitors.Values.ToDictionary(m => m.InterfaceIndex, m => m.Name);
-        string? osPreferred = null;
-        try { osPreferred = NetworkInfoService.GetOsPreferredInterfaceName(ifIndexToName); }
-        catch { /* best effort */ }
-
         var apiAdapters = new List<AdapterStatDto>();
 
-        foreach (var kv in _monitors)
+        foreach (var kv in monitors)
         {
-            if (!_rows.TryGetValue(kv.Key, out var row)) continue;
+            if (!rows.TryGetValue(kv.Key, out var row)) continue;
             var mon = kv.Value;
 
             var nowStat = mon.GetWindowStats(3, now);
@@ -308,12 +497,7 @@ public partial class MainWindow : Window
             row.IsOsPreferred = kv.Key == osPreferred;
         }
 
-        _statsApi.UpdateSnapshot(new StatusDto(
-            _target,
-            DateTime.UtcNow,
-            apiAdapters,
-            LatencyThresholds.Select(t => new ThresholdDto(t.Ms, t.Label, ToHex(t.Color))).ToList(),
-            JitterThresholds.Select(t => new ThresholdDto(t.Ms, t.Label, ToHex(t.Color))).ToList()));
+        return apiAdapters;
     }
 
     private static Brush ColorForLatency(double? v)
@@ -554,6 +738,26 @@ public partial class MainWindow : Window
         foreach (var row in ranked) _processRows.Add(row);
     }
 
+    /// <summary>
+    /// Runtime state for one extra (non-default) ping target: its own adapter monitors, rows and
+    /// chart controls, built dynamically in <see cref="BuildTargetSection"/> and driven the same
+    /// way the default target's XAML-declared controls are.
+    /// </summary>
+    private sealed class TargetSection
+    {
+        public required PingTarget Target { get; init; }
+        public required Border RootElement { get; init; }
+        public required ItemsControl AdapterCards { get; init; }
+        public required Canvas LatencyCanvas { get; init; }
+        public required StackPanel LatencyLegend { get; init; }
+        public required Canvas JitterCanvas { get; init; }
+        public required StackPanel JitterLegend { get; init; }
+
+        public Dictionary<string, AdapterMonitor> Monitors { get; } = new();
+        public Dictionary<string, AdapterRowViewModel> Rows { get; } = new();
+        public ObservableCollection<AdapterRowViewModel> RowsView { get; } = new();
+    }
+
     private sealed class TrackedProcess
     {
         public required int Pid { get; init; }
@@ -594,6 +798,16 @@ public partial class MainWindow : Window
 
     private void RedrawCharts(DateTime now)
     {
+        RedrawChartsFor(_monitors, LatencyChartCanvas, LatencyLegendPanel, JitterChartCanvas, JitterLegendPanel, now);
+        foreach (var section in _extraSections)
+        {
+            RedrawChartsFor(section.Monitors, section.LatencyCanvas, section.LatencyLegend, section.JitterCanvas, section.JitterLegend, now);
+        }
+    }
+
+    private void RedrawChartsFor(Dictionary<string, AdapterMonitor> monitors, Canvas latencyCanvas, StackPanel latencyLegend,
+        Canvas jitterCanvas, StackPanel jitterLegend, DateTime now)
+    {
         var windowStart = now.AddSeconds(-ChartWindowSeconds);
 
         var latencySeries = new Dictionary<string, List<(double T, double? V)>>();
@@ -601,7 +815,7 @@ public partial class MainWindow : Window
         double maxLatency = LatencyThresholds[^1].Ms;
         double maxJitter = JitterThresholds[^1].Ms;
 
-        foreach (var kv in _monitors)
+        foreach (var kv in monitors)
         {
             var latPts = new List<(double, double?)>();
             var jitPts = new List<(double, double?)>();
@@ -632,13 +846,14 @@ public partial class MainWindow : Window
             jitterSeries[kv.Key] = jitPts;
         }
 
-        DrawChart(LatencyChartCanvas, LatencyLegendPanel, latencySeries, maxLatency * 1.25, LatencyThresholds,
+        DrawChart(latencyCanvas, latencyLegend, monitors, latencySeries, maxLatency * 1.25, LatencyThresholds,
             mon => $"{AdapterRowViewModel.FormatMs(mon.GetSessionStats().Avg)} ms avg");
-        DrawChart(JitterChartCanvas, JitterLegendPanel, jitterSeries, maxJitter * 1.25, JitterThresholds,
+        DrawChart(jitterCanvas, jitterLegend, monitors, jitterSeries, maxJitter * 1.25, JitterThresholds,
             mon => $"{AdapterRowViewModel.FormatMs(mon.GetSessionStats().Jitter)} ms jitter");
     }
 
-    private void DrawChart(Canvas canvas, StackPanel legendPanel, Dictionary<string, List<(double T, double? V)>> series,
+    private void DrawChart(Canvas canvas, StackPanel legendPanel, Dictionary<string, AdapterMonitor> monitors,
+        Dictionary<string, List<(double T, double? V)>> series,
         double yMax, (double Ms, string Label, Brush Color)[] thresholds, Func<AdapterMonitor, string> legendSubtitle)
     {
         canvas.Children.Clear();
@@ -651,7 +866,7 @@ public partial class MainWindow : Window
         DrawGridlines(canvas, w, h, yMax);
         DrawThresholds(canvas, w, h, yMax, thresholds);
 
-        foreach (var kv in _monitors)
+        foreach (var kv in monitors)
         {
             var color = GetColorFor(kv.Key);
             if (series.TryGetValue(kv.Key, out var pts) && pts.Count >= 2)

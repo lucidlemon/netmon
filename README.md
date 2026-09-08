@@ -58,7 +58,11 @@ version can't do:
 
 - **Live latency and jitter graphs** — one line per adapter, last 2 minutes,
   stacked below the table, so you can *see* the difference instead of reading
-  numbers.
+  numbers, with reference lines for common gaming-latency tiers (shooters,
+  MOBA/RTS, casual) so you know at a glance where you stand.
+- **Extra targets** — see [below](#extra-targets): track ping/jitter to
+  something other than the default target (e.g. a game server) side by side,
+  on the same adapters.
 - **"Prefer this adapter"** — see [Adapter priority](#adapter-priority) below.
 - **Per-process bandwidth** — see [below](#per-process-bandwidth): which app
   is actually eating your connection when things get laggy.
@@ -99,6 +103,27 @@ cosmetic. If you ever want to undo it by hand:
 ```
 Set-NetIPInterface -InterfaceAlias "<adapter name>" -AutomaticMetric Enabled
 ```
+
+### Extra targets
+
+The default target (top right, `1.1.1.1` by default) is a general internet
+reachability check — it won't necessarily match what a specific game reports.
+Dota 2, CS2, etc. don't ping over ICMP at all: they go through Valve's Steam
+Datagram Relay, a UDP relay network that can pick a different path (and
+congest independently of) whatever route ICMP takes to some generic Valve IP.
+So "add a Valve target" is a useful comparison signal, not a guarantee it'll
+match the in-game number exactly.
+
+Under the charts, **"Extra targets"** lets you add named targets (label +
+host/IP) that get pinged in parallel with the default one, from the same
+adapters, each getting its own compact card + mini latency/jitter charts.
+Good candidates: a game server's datacenter IP (found via the game's own
+console, e.g. `status` in CS2/Dota 2, or a community list of that game's
+server IPs/regions), or any other host you want to track alongside general
+connectivity. Targets aren't persisted across restarts yet — re-add them if
+you close the app. They're also exposed through the
+[Stream Deck plugin](#stream-deck-plugin), so you can put a game server's
+ping on its own key.
 
 ### Per-process bandwidth
 

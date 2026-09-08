@@ -3,6 +3,7 @@ import { fetchStatus } from "../lib/netmon-api";
 import { renderTile } from "../lib/tile";
 
 type Settings = {
+	target?: string;
 	connection?: string;
 	metric?: "ping" | "jitter";
 };
@@ -66,7 +67,14 @@ export class ConnectionStatAction extends SingletonAction<Settings> {
 			return;
 		}
 
-		const adapter = status.adapters.find((a) => a.name === connection);
+		const targetId = settings.target?.trim() || "default";
+		const target = status.targets.find((t) => t.id === targetId);
+		if (!target) {
+			await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Target not found" }));
+			return;
+		}
+
+		const adapter = target.adapters.find((a) => a.name === connection);
 		if (!adapter) {
 			await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Not found" }));
 			return;
@@ -80,6 +88,7 @@ export class ConnectionStatAction extends SingletonAction<Settings> {
 				valueMs: value.ms,
 				tier: value.tier,
 				color: value.color,
+				targetLabel: target.id === "default" ? undefined : target.label,
 			}),
 		);
 	}

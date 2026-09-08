@@ -14,6 +14,10 @@
 	</style>
 </head>
 <body>
+	<sdpi-item label="Target">
+		<sdpi-select id="targetSelect" setting="target" placeholder="Loading targets…"></sdpi-select>
+	</sdpi-item>
+
 	<sdpi-item label="Connection">
 		<sdpi-select id="connectionSelect" setting="connection" placeholder="Loading connections…"></sdpi-select>
 	</sdpi-item>
@@ -26,7 +30,7 @@
 	</sdpi-item>
 
 	<sdpi-item>
-		<sdpi-button id="refreshButton">Refresh connection list</sdpi-button>
+		<sdpi-button id="refreshButton">Refresh from NetMon</sdpi-button>
 	</sdpi-item>
 
 	<div id="status"></div>
@@ -34,11 +38,26 @@
 	<script type="module">
 		const API_URL = "http://127.0.0.1:47115/api/status";
 
-		const select = document.getElementById("connectionSelect");
+		const targetSelect = document.getElementById("targetSelect");
+		const connectionSelect = document.getElementById("connectionSelect");
 		const status = document.getElementById("status");
 		const refreshButton = document.getElementById("refreshButton");
 
-		async function loadConnections() {
+		// Keeps whatever the persisted setting already points at, even if it's momentarily
+		// not in the live list, so a fetch failure or a target that's since been removed
+		// doesn't stomp the user's choice.
+		function populate(select, options, current) {
+			select.querySelectorAll("option").forEach((o) => o.remove());
+			for (const [value, label] of options) {
+				select.appendChild(new Option(label, value));
+			}
+			if (current && !options.some(([value]) => value === current)) {
+				select.appendChild(new Option(`${current} (not currently active)`, current));
+			}
+			if (current) select.value = current;
+		}
+
+		async function loadFromNetMon() {
 			status.textContent = "";
 			status.classList.remove("error");
 
@@ -53,30 +72,37 @@
 				return;
 			}
 
-			const adapters = data.adapters ?? [];
-			if (adapters.length === 0) {
-				status.textContent = "NetMon is running but isn't monitoring any adapters yet.";
+			const targets = data.targets ?? [];
+			if (targets.length === 0) {
+				status.textContent = "NetMon is running but isn't monitoring anything yet.";
 				return;
 			}
 
-			// Preserve whatever is currently selected (persisted setting) even if it's
-			// momentarily not in the live list, so we don't stomp the user's choice.
-			const current = select.value;
-			select.querySelectorAll("option").forEach((o) => o.remove());
-			for (const a of adapters) {
-				const opt = new Option(a.name, a.name);
-				select.appendChild(opt);
-			}
-			if (current && !adapters.some((a) => a.name === current)) {
-				select.appendChild(new Option(`${current} (not currently active)`, current));
-			}
-			if (current) select.value = current;
+			populate(
+				targetSelect,
+				targets.map((t) => [t.id, t.id === "default" ? `Default (${t.host})` : `${t.label} (${t.host})`]),
+				targetSelect.value,
+			);
 
-			status.textContent = `${adapters.length} connection(s) found, monitoring against ${data.target}.`;
+			// The adapter set is the same physical NICs across every target, so any target's
+			// adapter list works as the universe of connection names.
+			const adapters = targets[0].adapters ?? [];
+			populate(
+				connectionSelect,
+				adapters.map((a) => [a.name, a.name]),
+				connectionSelect.value,
+			);
+
+			if (adapters.length === 0) {
+				status.textContent = "NetMon isn't monitoring any adapters yet.";
+				return;
+			}
+
+			status.textContent = `${targets.length} target(s), ${adapters.length} connection(s) found.`;
 		}
 
-		refreshButton.addEventListener("click", loadConnections);
-		document.addEventListener("DOMContentLoaded", loadConnections);
-		loadConnections();
+		refreshButton.addEventListener("click", loadFromNetMon);
+		document.addEventListener("DOMContentLoaded", loadFromNetMon);
+		loadFromNetMon();
 	</script>
 </body>

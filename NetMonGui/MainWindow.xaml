@@ -72,6 +72,117 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <ItemsPanelTemplate x:Key="UniformRowPanelTemplate">
+            <UniformGrid Rows="1"/>
+        </ItemsPanelTemplate>
+
+        <DataTemplate x:Key="AdapterCardTemplate">
+            <Border Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1" CornerRadius="8"
+                    Margin="6" Padding="16">
+                <StackPanel>
+                    <!-- name / marker / OS badge -->
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Marker}" Foreground="Gold" FontWeight="Bold" FontSize="15"
+                                   Margin="0,0,4,0" VerticalAlignment="Center"/>
+                        <Border Width="10" Height="10" CornerRadius="5" Background="{Binding Color}"
+                                Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="15"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Description}" Foreground="#FF8A8A92" FontSize="11"
+                               Margin="0,3,0,14" TextTrimming="CharacterEllipsis"/>
+
+                    <!-- current latency, front and center -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,2">
+                        <TextBlock Text="{Binding NowMs}" FontSize="42" FontWeight="Bold" Foreground="{Binding NowBrush}"/>
+                        <TextBlock Text="ms" FontSize="16" Foreground="{Binding NowBrush}"
+                                   VerticalAlignment="Bottom" Margin="4,0,0,8"/>
+                    </StackPanel>
+                    <TextBlock Text="ping right now" Foreground="#FF6E6E76" FontSize="10"
+                               HorizontalAlignment="Center" Margin="0,0,0,16"/>
+
+                    <!-- 30s / 1h / session breakdown -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="ping / jitter" Foreground="#FF6E6E76" FontSize="10"
+                                   Margin="0,0,0,4"/>
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="loss" Foreground="#FF6E6E76" FontSize="10"
+                                   HorizontalAlignment="Right" Margin="0,0,0,4"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="30s" Foreground="#FF6E6E76" FontSize="11"
+                                   VerticalAlignment="Center" Margin="0,0,10,4"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Win30}" Foreground="{Binding Win30Brush}"
+                                   FontSize="12" Margin="0,0,0,4"/>
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Loss30}" Foreground="{Binding Loss30Brush}"
+                                   FontSize="12" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="1h" Foreground="#FF6E6E76" FontSize="11"
+                                   VerticalAlignment="Center" Margin="0,0,10,4"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Win1h}" Foreground="{Binding Win1hBrush}"
+                                   FontSize="12" Margin="0,0,0,4"/>
+                        <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Loss1h}" Foreground="{Binding Loss1hBrush}"
+                                   FontSize="12" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="session" Foreground="#FF6E6E76" FontSize="11"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Session}" Foreground="{Binding SessionBrush}"
+                                   FontSize="12"/>
+                        <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding LossSession}" Foreground="{Binding LossSessionBrush}"
+                                   FontSize="12" HorizontalAlignment="Right"/>
+                    </Grid>
+
+                    <Button Content="Prefer this adapter" Style="{StaticResource PreferButtonStyle}"
+                            HorizontalAlignment="Stretch" Margin="0,16,0,0" Padding="8,6"
+                            Tag="{Binding}" Click="PreferButton_Click"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Lighter-weight card used for extra (non-default) targets: no Prefer button, since
+             preferring an adapter changes real OS routing metrics and that's a default-target
+             concept, not something tied to a specific comparison target like a game server. -->
+        <DataTemplate x:Key="CompactAdapterCardTemplate">
+            <Border Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1" CornerRadius="8"
+                    Margin="6" Padding="14">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Marker}" Foreground="Gold" FontWeight="Bold" FontSize="13"
+                                   Margin="0,0,4,0" VerticalAlignment="Center"/>
+                        <Border Width="9" Height="9" CornerRadius="4.5" Background="{Binding Color}"
+                                Margin="0,0,7,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,2">
+                        <TextBlock Text="{Binding NowMs}" FontSize="30" FontWeight="Bold" Foreground="{Binding NowBrush}"/>
+                        <TextBlock Text="ms" FontSize="13" Foreground="{Binding NowBrush}"
+                                   VerticalAlignment="Bottom" Margin="4,0,0,5"/>
+                    </StackPanel>
+                    <TextBlock Text="ping right now" Foreground="#FF6E6E76" FontSize="9"
+                               HorizontalAlignment="Center" Margin="0,0,0,8"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="session " Foreground="#FF6E6E76" FontSize="11"/>
+                        <TextBlock Text="{Binding Session}" Foreground="{Binding SessionBrush}" FontSize="11"/>
+                        <TextBlock Text="   loss " Foreground="#FF6E6E76" FontSize="11" Margin="8,0,0,0"/>
+                        <TextBlock Text="{Binding LossSession}" Foreground="{Binding LossSessionBrush}" FontSize="11"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </Window.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -84,6 +195,8 @@
             <RowDefinition Height="200"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="200"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -117,87 +230,9 @@
         </DockPanel>
 
         <!-- Adapter cards - one per active connection, always splitting the available width evenly -->
-        <ItemsControl Grid.Row="2" x:Name="AdapterCards" VerticalAlignment="Top">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <UniformGrid Rows="1"/>
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Border Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1" CornerRadius="8"
-                            Margin="6" Padding="16">
-                        <StackPanel>
-                            <!-- name / marker / OS badge -->
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Marker}" Foreground="Gold" FontWeight="Bold" FontSize="15"
-                                           Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                <Border Width="10" Height="10" CornerRadius="5" Background="{Binding Color}"
-                                        Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="15"
-                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
-                            <TextBlock Text="{Binding Description}" Foreground="#FF8A8A92" FontSize="11"
-                                       Margin="0,3,0,14" TextTrimming="CharacterEllipsis"/>
-
-                            <!-- current latency, front and center -->
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,2">
-                                <TextBlock Text="{Binding NowMs}" FontSize="42" FontWeight="Bold" Foreground="{Binding NowBrush}"/>
-                                <TextBlock Text="ms" FontSize="16" Foreground="{Binding NowBrush}"
-                                           VerticalAlignment="Bottom" Margin="4,0,0,8"/>
-                            </StackPanel>
-                            <TextBlock Text="ping right now" Foreground="#FF6E6E76" FontSize="10"
-                                       HorizontalAlignment="Center" Margin="0,0,0,16"/>
-
-                            <!-- 30s / 1h / session breakdown -->
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="ping / jitter" Foreground="#FF6E6E76" FontSize="10"
-                                           Margin="0,0,0,4"/>
-                                <TextBlock Grid.Row="0" Grid.Column="2" Text="loss" Foreground="#FF6E6E76" FontSize="10"
-                                           HorizontalAlignment="Right" Margin="0,0,0,4"/>
-
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="30s" Foreground="#FF6E6E76" FontSize="11"
-                                           VerticalAlignment="Center" Margin="0,0,10,4"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Win30}" Foreground="{Binding Win30Brush}"
-                                           FontSize="12" Margin="0,0,0,4"/>
-                                <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Loss30}" Foreground="{Binding Loss30Brush}"
-                                           FontSize="12" HorizontalAlignment="Right" Margin="0,0,0,4"/>
-
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="1h" Foreground="#FF6E6E76" FontSize="11"
-                                           VerticalAlignment="Center" Margin="0,0,10,4"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Win1h}" Foreground="{Binding Win1hBrush}"
-                                           FontSize="12" Margin="0,0,0,4"/>
-                                <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Loss1h}" Foreground="{Binding Loss1hBrush}"
-                                           FontSize="12" HorizontalAlignment="Right" Margin="0,0,0,4"/>
-
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="session" Foreground="#FF6E6E76" FontSize="11"
-                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Session}" Foreground="{Binding SessionBrush}"
-                                           FontSize="12"/>
-                                <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding LossSession}" Foreground="{Binding LossSessionBrush}"
-                                           FontSize="12" HorizontalAlignment="Right"/>
-                            </Grid>
-
-                            <Button Content="Prefer this adapter" Style="{StaticResource PreferButtonStyle}"
-                                    HorizontalAlignment="Stretch" Margin="0,16,0,0" Padding="8,6"
-                                    Tag="{Binding}" Click="PreferButton_Click"/>
-                        </StackPanel>
-                    </Border>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <ItemsControl Grid.Row="2" x:Name="AdapterCards" VerticalAlignment="Top"
+                      ItemsPanel="{StaticResource UniformRowPanelTemplate}"
+                      ItemTemplate="{StaticResource AdapterCardTemplate}"/>
 
         <TextBlock Grid.Row="3" Margin="2,8,0,0" Foreground="#FF6E6E76" FontSize="11">
             ★ = currently the better connection (lowest session avg/jitter/loss score)    [OS] = the connection Windows is currently routing internet traffic through &#8212; these can disagree.
@@ -235,8 +270,30 @@
         <TextBlock Grid.Row="7" Margin="2,6,0,0" Foreground="#FF6E6E76" FontSize="11"
                     Text="Jitter over the last 2 minutes, per adapter (ms) — change from one ping to the next."/>
 
+        <!-- Extra targets: compare against something other than the default target, e.g. a
+             game server's datacenter, side by side with the same adapters above. -->
+        <Border Grid.Row="8" Margin="0,16,0,0" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1" Padding="12">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Text="Extra targets:" Foreground="#FF8FD3FF" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="0,0,14,0"/>
+                <TextBlock DockPanel.Dock="Left" Text="Label" Foreground="#FF8A8A92" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox x:Name="NewTargetLabelBox" DockPanel.Dock="Left" Width="140" VerticalContentAlignment="Center"
+                         Background="#FF26262C" Foreground="#FFE6E6E6" BorderBrush="#FF3A3A42" Padding="4,3" Margin="0,0,14,0"/>
+                <TextBlock DockPanel.Dock="Left" Text="Host / IP" Foreground="#FF8A8A92" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox x:Name="NewTargetHostBox" DockPanel.Dock="Left" Width="160" VerticalContentAlignment="Center"
+                         Background="#FF26262C" Foreground="#FFE6E6E6" BorderBrush="#FF3A3A42" Padding="4,3" Margin="0,0,10,0"/>
+                <Button DockPanel.Dock="Left" Content="Add target" Style="{StaticResource PreferButtonStyle}"
+                        Padding="16,3" Click="AddTargetButton_Click"/>
+                <TextBlock DockPanel.Dock="Right" Foreground="#FF6E6E76" FontSize="11" VerticalAlignment="Center"
+                           TextWrapping="Wrap" MaxWidth="380"
+                           Text="e.g. a game server's datacenter IP, to compare against what the game itself reports — ICMP ping to it won't always match a game's own UDP-based ping, but it's a useful signal."/>
+            </DockPanel>
+        </Border>
+
+        <StackPanel Grid.Row="9" x:Name="ExtraTargetsHost" Margin="0,12,0,0"/>
+
         <!-- Per-process bandwidth (only visible once enabled) -->
-        <Border Grid.Row="8" x:Name="ProcessPanel" Margin="0,12,0,0" Background="#FF1F1F24"
+        <Border Grid.Row="10" x:Name="ProcessPanel" Margin="0,12,0,0" Background="#FF1F1F24"
                 BorderBrush="#FF3A3A42" BorderThickness="1" Visibility="Collapsed">
             <Grid Margin="8">
                 <Grid.RowDefinitions>

@@ -19,10 +19,15 @@ public sealed record AdapterStatDto(
     MetricDto Jitter,
     double LossPercent);
 
+public sealed record TargetStatusDto(
+    string Id,
+    string Label,
+    string Host,
+    List<AdapterStatDto> Adapters);
+
 public sealed record StatusDto(
-    string Target,
     DateTime UpdatedAtUtc,
-    List<AdapterStatDto> Adapters,
+    List<TargetStatusDto> Targets,
     List<ThresholdDto> LatencyThresholds,
     List<ThresholdDto> JitterThresholds);
 

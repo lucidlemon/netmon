@@ -4,6 +4,8 @@ export type TileOptions = {
 	valueMs: number | null;
 	tier: string | null;
 	color: string | null;
+	/** Extra (non-default) target's label, e.g. "Valve EU" — shown next to the tier when set. */
+	targetLabel?: string;
 	/** Shown instead of the metric when NetMon can't be reached or the connection isn't found. */
 	statusMessage?: string;
 };
@@ -46,12 +48,15 @@ export function renderTile(opts: TileOptions): string {
 
 	const bg = opts.color ?? "#6E6E76";
 	const valueText = opts.valueMs === null || opts.valueMs === undefined ? "--" : opts.valueMs.toFixed(1);
-	const nameText = truncate(opts.connectionName, 16);
+	// When this key is for a non-default target, the target (e.g. "Valve EU") is the more useful
+	// thing to show at a glance than the NIC name — the user already knows which connection they
+	// picked when they set the key up, but easily confuses two keys pointed at different targets.
+	const titleText = truncate(opts.targetLabel ?? opts.connectionName, 18);
 	const tierText = opts.tier ? truncate(opts.tier, 18) : "";
 
 	return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">
   <rect width="${SIZE}" height="${SIZE}" rx="24" fill="${bg}"/>
-  <text x="50%" y="34" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" fill="${TEXT_DARK}" opacity="0.8">${escapeXml(nameText)}</text>
+  <text x="50%" y="34" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" fill="${TEXT_DARK}" opacity="0.8">${escapeXml(titleText)}</text>
   <text x="50%" y="120" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="58" font-weight="700" fill="${TEXT_DARK}">${escapeXml(valueText)}</text>
   <text x="50%" y="148" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="${TEXT_DARK}" opacity="0.75">ms ${opts.metricLabel.toLowerCase()}</text>
   <text x="50%" y="180" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="${TEXT_DARK}" opacity="0.7">${escapeXml(tierText)}</text>

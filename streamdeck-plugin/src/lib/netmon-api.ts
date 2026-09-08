@@ -14,6 +14,13 @@ export type Adapter = {
 	lossPercent: number;
 };
 
+export type Target = {
+	id: string;
+	label: string;
+	host: string;
+	adapters: Adapter[];
+};
+
 export type Threshold = {
 	ms: number;
 	label: string;
@@ -21,9 +28,8 @@ export type Threshold = {
 };
 
 export type NetMonStatus = {
-	target: string;
 	updatedAtUtc: string;
-	adapters: Adapter[];
+	targets: Target[];
 	latencyThresholds: Threshold[];
 	jitterThresholds: Threshold[];
 };
