@@ -41,6 +41,25 @@ public partial class MainWindow : Window
     private static readonly Brush GridBrush = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x3A));
     private static readonly Brush AxisTextBrush = new SolidColorBrush(Color.FromRgb(0x8A, 0x8A, 0x92));
 
+    // Widely-cited rules of thumb for "good enough" ping in different game genres.
+    // Competitive shooters need the tightest reaction windows; MOBA/RTS and casual/co-op
+    // titles tolerate progressively more latency before it's noticeable.
+    private static readonly (double Ms, string Label, Brush Color)[] LatencyThresholds =
+    {
+        (25, "Shooters", GreenBrush),
+        (50, "MOBA/RTS", YellowBrush),
+        (100, "Casual/Co-op", RedBrush),
+    };
+
+    // Jitter (variation between consecutive pings) causes rubber-banding even when average
+    // ping looks fine. 0ms is the ideal; these bands mark where it starts to become disruptive.
+    private static readonly (double Ms, string Label, Brush Color)[] JitterThresholds =
+    {
+        (5, "Excellent", GreenBrush),
+        (15, "Good", YellowBrush),
+        (30, "Noticeable", RedBrush),
+    };
+
     private readonly Dictionary<string, AdapterMonitor> _monitors = new();
     private readonly Dictionary<string, AdapterRowViewModel> _rows = new();
     private readonly Dictionary<string, Brush> _colorByName = new();
@@ -543,8 +562,8 @@ public partial class MainWindow : Window
 
         var latencySeries = new Dictionary<string, List<(double T, double? V)>>();
         var jitterSeries = new Dictionary<string, List<(double T, double? V)>>();
-        double maxLatency = 10;
-        double maxJitter = 10;
+        double maxLatency = LatencyThresholds[^1].Ms;
+        double maxJitter = JitterThresholds[^1].Ms;
 
         foreach (var kv in _monitors)
         {
@@ -577,14 +596,14 @@ public partial class MainWindow : Window
             jitterSeries[kv.Key] = jitPts;
         }
 
-        DrawChart(LatencyChartCanvas, LatencyLegendPanel, latencySeries, maxLatency * 1.25,
+        DrawChart(LatencyChartCanvas, LatencyLegendPanel, latencySeries, maxLatency * 1.25, LatencyThresholds,
             mon => $"{AdapterRowViewModel.FormatMs(mon.GetSessionStats().Avg)} ms avg");
-        DrawChart(JitterChartCanvas, JitterLegendPanel, jitterSeries, maxJitter * 1.25,
+        DrawChart(JitterChartCanvas, JitterLegendPanel, jitterSeries, maxJitter * 1.25, JitterThresholds,
             mon => $"{AdapterRowViewModel.FormatMs(mon.GetSessionStats().Jitter)} ms jitter");
     }
 
     private void DrawChart(Canvas canvas, StackPanel legendPanel, Dictionary<string, List<(double T, double? V)>> series,
-        double yMax, Func<AdapterMonitor, string> legendSubtitle)
+        double yMax, (double Ms, string Label, Brush Color)[] thresholds, Func<AdapterMonitor, string> legendSubtitle)
     {
         canvas.Children.Clear();
         legendPanel.Children.Clear();
@@ -594,6 +613,7 @@ public partial class MainWindow : Window
         if (w <= 4 || h <= 4) return;
 
         DrawGridlines(canvas, w, h, yMax);
+        DrawThresholds(canvas, w, h, yMax, thresholds);
 
         foreach (var kv in _monitors)
         {
@@ -626,6 +646,39 @@ public partial class MainWindow : Window
             Canvas.SetLeft(label, 2);
             Canvas.SetTop(label, Math.Max(0, y - 12));
             canvas.Children.Add(label);
+        }
+    }
+
+    private static void DrawThresholds(Canvas canvas, double w, double h, double yMax, (double Ms, string Label, Brush Color)[] thresholds)
+    {
+        foreach (var (ms, label, color) in thresholds)
+        {
+            if (ms <= 0 || ms > yMax) continue;
+            double y = h - ms / yMax * h;
+
+            var line = new Line
+            {
+                X1 = 0,
+                X2 = w,
+                Y1 = y,
+                Y2 = y,
+                Stroke = color,
+                StrokeThickness = 1,
+                StrokeDashArray = new DoubleCollection { 3, 3 },
+                Opacity = 0.5,
+            };
+            canvas.Children.Add(line);
+
+            var text = new TextBlock
+            {
+                Text = $"{label} ≤{ms:F0}ms",
+                Foreground = color,
+                FontSize = 10,
+                Opacity = 0.85,
+            };
+            Canvas.SetRight(text, 2);
+            Canvas.SetTop(text, Math.Max(0, y - 13));
+            canvas.Children.Add(text);
         }
     }
 
