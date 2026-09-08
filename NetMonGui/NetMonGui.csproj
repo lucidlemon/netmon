@@ -11,7 +11,7 @@
     <RootNamespace>NetMonGui</RootNamespace>
 
     <!-- Bumped before each release; CI reads this to tag and version the Velopack release. -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
 
     <!-- Standalone single-file exe settings (used by `dotnet publish` locally / Build-NetMonGui.bat).
          The Velopack release build (see .github/workflows/release.yml) overrides PublishSingleFile
