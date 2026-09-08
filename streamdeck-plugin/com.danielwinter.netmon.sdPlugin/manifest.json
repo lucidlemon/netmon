@@ -1,0 +1,42 @@
+{
+	"$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+	"Name": "NetMon",
+	"Author": "Daniel Winter",
+	"Description": "Live ping and jitter for your NetMon-monitored connections, right on a key.",
+	"Icon": "imgs/plugin/marketplace",
+	"CodePath": "bin/plugin.js",
+	"UUID": "com.danielwinter.netmon",
+	"Version": "1.0.0.0",
+	"SDKVersion": 2,
+	"Category": "NetMon",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"Software": {
+		"MinimumVersion": "6.5"
+	},
+	"OS": [
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "20"
+	},
+	"Actions": [
+		{
+			"Name": "Connection Stat",
+			"UUID": "com.danielwinter.netmon.connection-stat",
+			"Icon": "imgs/actions/connection-stat/icon",
+			"Tooltip": "Shows live ping or jitter for one connection NetMonGui is monitoring.",
+			"PropertyInspectorPath": "ui/connection-stat.html",
+			"Controllers": ["Keypad"],
+			"States": [
+				{
+					"Image": "imgs/actions/connection-stat/key",
+					"TitleAlignment": "middle",
+					"ShowTitle": false
+				}
+			]
+		}
+	]
+}

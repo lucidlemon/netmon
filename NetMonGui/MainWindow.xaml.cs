@@ -72,6 +72,7 @@ public partial class MainWindow : Window
     private string _target = "1.1.1.1";
     private int _nextColorIndex;
 
+    private readonly StatsApiService _statsApi = new();
     private readonly ProcessBandwidthService _bandwidthService = new();
     private readonly ObservableCollection<ProcessBandwidthRowViewModel> _processRows = new();
     private readonly Dictionary<int, TrackedProcess> _knownProcesses = new();
@@ -97,6 +98,7 @@ public partial class MainWindow : Window
         {
             _timer.Stop();
             _bandwidthService.Dispose();
+            _statsApi.Dispose();
         };
     }
 
@@ -104,6 +106,7 @@ public partial class MainWindow : Window
     {
         _startTime = DateTime.Now;
         _lastDiscovery = DateTime.MinValue;
+        _statsApi.Start();
         SyncMonitors();
         _lastDiscovery = DateTime.Now;
         _timer.Start();
@@ -262,6 +265,8 @@ public partial class MainWindow : Window
         try { osPreferred = NetworkInfoService.GetOsPreferredInterfaceName(ifIndexToName); }
         catch { /* best effort */ }
 
+        var apiAdapters = new List<AdapterStatDto>();
+
         foreach (var kv in _monitors)
         {
             if (!_rows.TryGetValue(kv.Key, out var row)) continue;
@@ -274,6 +279,15 @@ public partial class MainWindow : Window
 
             row.NowMs = AdapterRowViewModel.FormatMs(nowStat.Avg);
             row.NowBrush = ColorForLatency(nowStat.Avg);
+
+            apiAdapters.Add(new AdapterStatDto(
+                mon.Name,
+                mon.Description,
+                kv.Key == best,
+                kv.Key == osPreferred,
+                MetricFor(nowStat.Avg, LatencyThresholds),
+                MetricFor(nowStat.Jitter, JitterThresholds),
+                nowStat.Loss));
 
             row.Win30 = AdapterRowViewModel.FormatWindow(s30);
             row.Win30Brush = ColorForLatency(s30.Avg);
@@ -293,6 +307,13 @@ public partial class MainWindow : Window
             row.IsBest = kv.Key == best;
             row.IsOsPreferred = kv.Key == osPreferred;
         }
+
+        _statsApi.UpdateSnapshot(new StatusDto(
+            _target,
+            DateTime.UtcNow,
+            apiAdapters,
+            LatencyThresholds.Select(t => new ThresholdDto(t.Ms, t.Label, ToHex(t.Color))).ToList(),
+            JitterThresholds.Select(t => new ThresholdDto(t.Ms, t.Label, ToHex(t.Color))).ToList()));
     }
 
     private static Brush ColorForLatency(double? v)
@@ -302,6 +323,21 @@ public partial class MainWindow : Window
         if (v.Value < 80) return YellowBrush;
         return RedBrush;
     }
+
+    private static MetricDto MetricFor(double? v, (double Ms, string Label, Brush Color)[] thresholds)
+    {
+        if (!v.HasValue) return new MetricDto(null, null, null);
+
+        foreach (var t in thresholds)
+        {
+            if (v.Value <= t.Ms) return new MetricDto(v, t.Label, ToHex(t.Color));
+        }
+
+        return new MetricDto(v, "Poor", ToHex(RedBrush));
+    }
+
+    private static string ToHex(Brush brush) =>
+        brush is SolidColorBrush scb ? $"#{scb.Color.R:X2}{scb.Color.G:X2}{scb.Color.B:X2}" : "#808080";
 
     private async void PreferButton_Click(object sender, RoutedEventArgs e)
     {

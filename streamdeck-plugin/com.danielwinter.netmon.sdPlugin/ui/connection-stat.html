@@ -1,0 +1,82 @@
+<!doctype html>
+<head lang="en">
+	<meta charset="utf-8" />
+	<script src="https://sdpi-components.dev/releases/v3/sdpi-components.js"></script>
+	<style>
+		#status {
+			font-size: 11px;
+			color: var(--sdpi-color-light-grey, #969696);
+			padding: 4px 16px 0;
+		}
+		#status.error {
+			color: #e0605a;
+		}
+	</style>
+</head>
+<body>
+	<sdpi-item label="Connection">
+		<sdpi-select id="connectionSelect" setting="connection" placeholder="Loading connections…"></sdpi-select>
+	</sdpi-item>
+
+	<sdpi-item label="Metric">
+		<sdpi-select setting="metric" value-type="string">
+			<option value="ping">Ping</option>
+			<option value="jitter">Jitter</option>
+		</sdpi-select>
+	</sdpi-item>
+
+	<sdpi-item>
+		<sdpi-button id="refreshButton">Refresh connection list</sdpi-button>
+	</sdpi-item>
+
+	<div id="status"></div>
+
+	<script type="module">
+		const API_URL = "http://127.0.0.1:47115/api/status";
+
+		const select = document.getElementById("connectionSelect");
+		const status = document.getElementById("status");
+		const refreshButton = document.getElementById("refreshButton");
+
+		async function loadConnections() {
+			status.textContent = "";
+			status.classList.remove("error");
+
+			let data;
+			try {
+				const res = await fetch(API_URL, { signal: AbortSignal.timeout(1500) });
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				data = await res.json();
+			} catch (err) {
+				status.textContent = "Can't reach NetMon on 127.0.0.1:47115 — make sure the app is running.";
+				status.classList.add("error");
+				return;
+			}
+
+			const adapters = data.adapters ?? [];
+			if (adapters.length === 0) {
+				status.textContent = "NetMon is running but isn't monitoring any adapters yet.";
+				return;
+			}
+
+			// Preserve whatever is currently selected (persisted setting) even if it's
+			// momentarily not in the live list, so we don't stomp the user's choice.
+			const current = select.value;
+			select.querySelectorAll("option").forEach((o) => o.remove());
+			for (const a of adapters) {
+				const opt = new Option(a.name, a.name);
+				select.appendChild(opt);
+			}
+			if (current && !adapters.some((a) => a.name === current)) {
+				select.appendChild(new Option(`${current} (not currently active)`, current));
+			}
+			if (current) select.value = current;
+
+			status.textContent = `${adapters.length} connection(s) found, monitoring against ${data.target}.`;
+		}
+
+		refreshButton.addEventListener("click", loadConnections);
+		document.addEventListener("DOMContentLoaded", loadConnections);
+		loadConnections();
+	</script>
+</body>

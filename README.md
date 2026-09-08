@@ -191,6 +191,17 @@ ETW data" are things *you're* comfortable with an app doing. Read
 [Per-process bandwidth](#per-process-bandwidth) above and judge that part
 yourself.
 
+## Stream Deck plugin
+
+[`streamdeck-plugin/`](streamdeck-plugin/) has an Elgato Stream Deck plugin
+that puts live ping or jitter for a chosen connection on a key, color-coded
+with the same thresholds as the app's charts. It talks to NetMonGui over a
+small loopback-only JSON API the app exposes automatically
+(`NetMonGui/Services/StatsApiService.cs`, `http://127.0.0.1:47115/api/status`)
+— no configuration needed on the app side, just have it running. See
+[streamdeck-plugin/README.md](streamdeck-plugin/README.md) for building and
+installing it.
+
 ## Console version (netmon.ps1)
 
 No install required — it's a single PowerShell script, and PowerShell ships with

@@ -20,3 +20,8 @@ publish/
 
 # Claude Code local settings (personal, not project config)
 .claude/
+
+# Stream Deck plugin - Node deps (its built bundle already matches bin/ above),
+# plus the SDK's own runtime log files when run/tested locally
+node_modules/
+streamdeck-plugin/com.danielwinter.netmon.sdPlugin/logs/
