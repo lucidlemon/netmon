@@ -9,6 +9,13 @@ public sealed record ThresholdDto(double Ms, string Label, string Color);
 
 public sealed record MetricDto(double? Ms, string? Tier, string? Color);
 
+/// <summary>
+/// Recent per-sample ping/jitter history (one entry per ~1s sample over the app's mini-sparkline
+/// window; null = a failed ping), for clients that want to draw their own trend graph - the
+/// Stream Deck plugin's graph tile mode, in particular.
+/// </summary>
+public sealed record AdapterHistoryDto(List<double?> Ping, List<double?> Jitter);
+
 public sealed record AdapterStatDto(
     string Name,
     string Description,
@@ -16,7 +23,8 @@ public sealed record AdapterStatDto(
     bool IsOsPreferred,
     MetricDto Ping,
     MetricDto Jitter,
-    double LossPercent);
+    double LossPercent,
+    AdapterHistoryDto History);
 
 public sealed record TargetStatusDto(
     string Id,

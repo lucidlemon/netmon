@@ -561,7 +561,8 @@ public partial class MainWindow : Window
             row.Loss60 = AdapterRowViewModel.FormatLoss(s60.Loss);
             row.Loss60Brush = s60.Loss > 0 ? LossBrush : MutedBrush;
 
-            var (pingSpark, jitterSpark) = BuildMiniSparklines(mon, now, row.SparkWidth);
+            var (pingHist, jitterHist) = GetRecentHistory(mon, now, MiniChartWindowSeconds);
+            var (pingSpark, jitterSpark) = BuildMiniSparklines(pingHist, jitterHist, row.SparkWidth);
             row.PingSpark = pingSpark;
             row.JitterSpark = jitterSpark;
 
@@ -572,7 +573,10 @@ public partial class MainWindow : Window
                 kv.Key == osPreferred,
                 MetricFor(nowStat.Avg, LatencyThresholds),
                 MetricFor(nowStat.Jitter, JitterThresholds),
-                nowStat.Loss));
+                nowStat.Loss,
+                new AdapterHistoryDto(
+                    pingHist.Select(p => p.V).ToList(),
+                    jitterHist.Select(p => p.V).ToList())));
 
             row.Win30 = AdapterRowViewModel.FormatWindow(s30);
             row.Win30Brush = ColorForLatency(s30.Avg);
@@ -891,50 +895,64 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Ping/jitter points for one adapter's compact-mode sparkline, scaled to the mini canvas's
-    /// actual rendered width (kept current by MiniSparkCanvas_SizeChanged) and a fixed
-    /// MiniChartHeight. Jitter is derived from consecutive samples the same way RedrawChartsFor
-    /// does, just over a shorter window and without failure-gap breaks - a card this small doesn't
-    /// have room to show where pings dropped out, just the overall trend.
+    /// Ping/jitter samples for one adapter over the last windowSeconds, one entry per raw sample
+    /// (null = failed ping), each paired with its elapsed-time offset from the window start so
+    /// consumers can position points by actual time rather than assuming perfectly even 1Hz
+    /// spacing. Feeds both the WPF compact-card sparkline (BuildMiniSparklines below) and the
+    /// Stream Deck API's per-adapter history (UpdateRowsFor) - previously duplicated in both
+    /// places, which meant fixing a bug in one wouldn't fix the other.
     /// </summary>
-    private static (PointCollection Ping, PointCollection Jitter) BuildMiniSparklines(AdapterMonitor mon, DateTime now, double width)
+    private static (List<(double T, double? V)> Ping, List<(double T, double? V)> Jitter) GetRecentHistory(
+        AdapterMonitor mon, DateTime now, int windowSeconds)
     {
-        var windowStart = now.AddSeconds(-MiniChartWindowSeconds);
-        var pingPts = new List<(double T, double V)>();
-        var jitterPts = new List<(double T, double V)>();
+        var windowStart = now.AddSeconds(-windowSeconds);
+        var ping = new List<(double T, double? V)>();
+        var jitter = new List<(double T, double? V)>();
         double? prevRtt = null;
 
         foreach (var s in mon.Samples)
         {
             double? rtt = s.Ok ? s.Rtt : null;
-            double? jitter = null;
+            double? jit = null;
             if (rtt.HasValue)
             {
-                if (prevRtt.HasValue) jitter = Math.Abs(rtt.Value - prevRtt.Value);
+                if (prevRtt.HasValue) jit = Math.Abs(rtt.Value - prevRtt.Value);
                 prevRtt = rtt.Value;
             }
 
             if (s.Time < windowStart) continue;
             double t = (s.Time - windowStart).TotalSeconds;
-            if (rtt.HasValue) pingPts.Add((t, rtt.Value));
-            if (jitter.HasValue) jitterPts.Add((t, jitter.Value));
+            ping.Add((t, rtt));
+            jitter.Add((t, jit));
         }
 
-        double maxVal = 5; // floor so a flat/quiet line doesn't get blown up by near-zero scaling
-        foreach (var p in pingPts) maxVal = Math.Max(maxVal, p.V);
-        foreach (var p in jitterPts) maxVal = Math.Max(maxVal, p.V);
-        maxVal *= 1.15;
-
-        return (ToMiniPoints(pingPts, maxVal, width), ToMiniPoints(jitterPts, maxVal, width));
+        return (ping, jitter);
     }
 
-    private static PointCollection ToMiniPoints(List<(double T, double V)> pts, double maxVal, double width)
+    /// <summary>
+    /// Ping/jitter points for one adapter's compact-mode sparkline, scaled to the mini canvas's
+    /// actual rendered width (kept current by MiniSparkCanvas_SizeChanged) and a fixed
+    /// MiniChartHeight.
+    /// </summary>
+    private static (PointCollection Ping, PointCollection Jitter) BuildMiniSparklines(
+        List<(double T, double? V)> pingHist, List<(double T, double? V)> jitterHist, double width)
+    {
+        double maxVal = 5; // floor so a flat/quiet line doesn't get blown up by near-zero scaling
+        foreach (var (_, v) in pingHist) if (v.HasValue) maxVal = Math.Max(maxVal, v.Value);
+        foreach (var (_, v) in jitterHist) if (v.HasValue) maxVal = Math.Max(maxVal, v.Value);
+        maxVal *= 1.15;
+
+        return (ToMiniPoints(pingHist, maxVal, width), ToMiniPoints(jitterHist, maxVal, width));
+    }
+
+    private static PointCollection ToMiniPoints(List<(double T, double? V)> pts, double maxVal, double width)
     {
         var pc = new PointCollection();
         foreach (var (t, v) in pts)
         {
+            if (!v.HasValue) continue;
             double x = t / MiniChartWindowSeconds * width;
-            double y = MiniChartHeight - Math.Min(1.0, v / maxVal) * MiniChartHeight;
+            double y = MiniChartHeight - Math.Min(1.0, v.Value / maxVal) * MiniChartHeight;
             pc.Add(new Point(x, y));
         }
         return pc;
