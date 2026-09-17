@@ -1,8 +1,10 @@
 name: Release
 
-# Runs every push to main. Bump <Version> in NetMonGui.csproj before merging when you actually
-# want to cut a new release - vpk will fail the upload if that exact version's tag already
-# exists on GitHub, so pushes that don't bump it are effectively no-ops that just fail loudly.
+# Runs every push to main. <Version> in NetMonGui.csproj is the "intended" release (bump it
+# there - e.g. 1.5.0 -> 1.6.0 - only when you actually want a new minor version); every push
+# that doesn't change it auto-increments the patch digit instead (1.5.0, 1.5.1, 1.5.2, ...) by
+# checking existing release tags, so routine pushes (docs, plugin-only fixes, etc.) never fail
+# vpk with "version already exists" the way a literal re-push of the same version used to.
 on:
   push:
     branches: [main]
@@ -17,10 +19,30 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Read version from csproj
+      - name: Compute release version (auto patch-bump)
         id: get-version
         shell: bash
-        run: echo "version=$(grep -oE '<Version>[^<]+' NetMonGui/NetMonGui.csproj | sed 's/<Version>//')" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          base=$(grep -oE '<Version>[^<]+' NetMonGui/NetMonGui.csproj | sed 's/<Version>//')
+          major=$(echo "$base" | cut -d. -f1)
+          minor=$(echo "$base" | cut -d. -f2)
+
+          existing_patches=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName' \
+            | grep -E "^v${major}\.${minor}\.[0-9]+$" \
+            | sed -E "s/^v${major}\.${minor}\.//" \
+            | sort -n)
+
+          if [ -z "$existing_patches" ]; then
+            version="$base"
+          else
+            last_patch=$(echo "$existing_patches" | tail -1)
+            version="${major}.${minor}.$((last_patch + 1))"
+          fi
+
+          echo "Base version from csproj: $base -> releasing $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Install .NET
         uses: actions/setup-dotnet@v6
