@@ -41,7 +41,7 @@
 		{
 			"Name": "Composite Stat",
 			"UUID": "com.danielwinter.netmon.composite-stat",
-			"Icon": "imgs/actions/connection-stat/icon",
+			"Icon": "imgs/actions/composite-stat/icon",
 			"Tooltip": "Shows two metrics (e.g. ping and jitter) for one connection NetMonGui is monitoring on a single key.",
 			"PropertyInspectorPath": "ui/composite-stat.html",
 			"Controllers": ["Keypad"],
