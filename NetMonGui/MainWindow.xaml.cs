@@ -22,6 +22,16 @@ public partial class MainWindow : Window
     private const double ProcessPanelHeight = 340;
     private const int MaxProcessRows = 10;
 
+    // Below this window width, the full card grid/charts/extra-target UI don't fit comfortably,
+    // so MainWindow_SizeChanged swaps in the single-column MinimalAdapterCardTemplate instead.
+    // The header and extra-targets rows are fixed-width DockPanels (Target combo, Add-target
+    // textboxes, etc.) that were never built to reflow - they need roughly 950px to lay out
+    // without the DockPanel squeezing its trailing elements into wrapped slivers, so the
+    // threshold has to clear that rather than sit at whatever width the card grid alone needs.
+    private const double CompactWidthThreshold = 960;
+    private const int MiniChartWindowSeconds = 60;
+    private const double MiniChartHeight = 26;
+
     private static readonly Brush[] Palette =
     {
         new SolidColorBrush(Color.FromRgb(0x4F, 0xA8, 0xE8)), // blue
@@ -82,6 +92,7 @@ public partial class MainWindow : Window
     private DateTime _lastBandwidthDrain;
 
     private const int Avg30WindowSeconds = 30;
+    private bool _isCompact;
 
     private enum ProcessSortMode { Current, Avg30, Total }
 
@@ -89,6 +100,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         AdapterCards.ItemsSource = _rowsView;
+        CompactAdapterCards.ItemsSource = _rowsView;
         ProcessGrid.ItemsSource = _processRows;
         TargetPresetCombo.SelectedIndex = 0;
 
@@ -113,6 +125,9 @@ public partial class MainWindow : Window
         _lastDiscovery = DateTime.Now;
         _timer.Start();
 
+        _isCompact = ActualWidth < CompactWidthThreshold;
+        ApplyCompactMode(_isCompact);
+
         if (Environment.GetCommandLineArgs().Contains(ElevatedRelaunchArg))
         {
             PerProcessCheckBox.IsChecked = true;
@@ -123,6 +138,50 @@ public partial class MainWindow : Window
             UpdateStatusText.Text = msg;
             UpdateStatusText.Visibility = Visibility.Visible;
         }));
+    }
+
+    private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        bool compact = ActualWidth < CompactWidthThreshold;
+        if (compact == _isCompact) return;
+        _isCompact = compact;
+        ApplyCompactMode(compact);
+    }
+
+    /// <summary>
+    /// Below CompactWidthThreshold, hides everything but the status line and a single-column list
+    /// of MinimalAdapterCardTemplate cards - the full card grid, both 2-minute charts, the extra-
+    /// targets editor and the process panel don't fit a narrow window usefully. Expanding back
+    /// restores them (and restores the process panel only if per-process tracking is still on).
+    /// </summary>
+    private void ApplyCompactMode(bool compact)
+    {
+        var full = compact ? Visibility.Collapsed : Visibility.Visible;
+
+        HeaderPanel.Visibility = full;
+        LegendNoteText.Visibility = full;
+        LatencyChartBorder.Visibility = full;
+        LatencyCaptionText.Visibility = full;
+        JitterChartBorder.Visibility = full;
+        JitterCaptionText.Visibility = full;
+        ExtraTargetsBorder.Visibility = full;
+        ExtraTargetsHost.Visibility = full;
+        ProcessPanel.Visibility = compact ? Visibility.Collapsed
+            : (_perProcessEnabled ? Visibility.Visible : Visibility.Collapsed);
+
+        AdapterCards.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        CompactAdapterCards.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
+
+        // LatencyChartBorder/JitterChartBorder being Collapsed doesn't free their Grid row's space -
+        // the rows have a fixed 200px Height so the charts have room to draw into, and a Grid row's
+        // size doesn't follow its content's Visibility. Without this, compact mode was left with a
+        // 400px dead scrollable area below the cards.
+        var chartRowHeight = compact ? new GridLength(0) : new GridLength(200);
+        LatencyChartRow.Height = chartRowHeight;
+        JitterChartRow.Height = chartRowHeight;
     }
 
     private void TargetPresetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -487,11 +546,19 @@ public partial class MainWindow : Window
 
             var nowStat = mon.GetWindowStats(3, now);
             var s30 = mon.GetWindowStats(30, now);
+            var s60 = mon.GetWindowStats(60, now);
             var h1 = mon.GetWindowStats(3600, now);
             var sess = mon.GetSessionStats();
 
             row.NowMs = AdapterRowViewModel.FormatMs(nowStat.Avg);
             row.NowBrush = ColorForLatency(nowStat.Avg);
+            row.NowJitterMs = AdapterRowViewModel.FormatMs(nowStat.Jitter);
+            row.Loss60 = AdapterRowViewModel.FormatLoss(s60.Loss);
+            row.Loss60Brush = s60.Loss > 0 ? LossBrush : MutedBrush;
+
+            var (pingSpark, jitterSpark) = BuildMiniSparklines(mon, now, row.SparkWidth);
+            row.PingSpark = pingSpark;
+            row.JitterSpark = jitterSpark;
 
             apiAdapters.Add(new AdapterStatDto(
                 mon.Name,
@@ -815,6 +882,64 @@ public partial class MainWindow : Window
         catch
         {
             return pid == 4 ? "System" : $"PID {pid}";
+        }
+    }
+
+    /// <summary>
+    /// Ping/jitter points for one adapter's compact-mode sparkline, scaled to the mini canvas's
+    /// actual rendered width (kept current by MiniSparkCanvas_SizeChanged) and a fixed
+    /// MiniChartHeight. Jitter is derived from consecutive samples the same way RedrawChartsFor
+    /// does, just over a shorter window and without failure-gap breaks - a card this small doesn't
+    /// have room to show where pings dropped out, just the overall trend.
+    /// </summary>
+    private static (PointCollection Ping, PointCollection Jitter) BuildMiniSparklines(AdapterMonitor mon, DateTime now, double width)
+    {
+        var windowStart = now.AddSeconds(-MiniChartWindowSeconds);
+        var pingPts = new List<(double T, double V)>();
+        var jitterPts = new List<(double T, double V)>();
+        double? prevRtt = null;
+
+        foreach (var s in mon.Samples)
+        {
+            double? rtt = s.Ok ? s.Rtt : null;
+            double? jitter = null;
+            if (rtt.HasValue)
+            {
+                if (prevRtt.HasValue) jitter = Math.Abs(rtt.Value - prevRtt.Value);
+                prevRtt = rtt.Value;
+            }
+
+            if (s.Time < windowStart) continue;
+            double t = (s.Time - windowStart).TotalSeconds;
+            if (rtt.HasValue) pingPts.Add((t, rtt.Value));
+            if (jitter.HasValue) jitterPts.Add((t, jitter.Value));
+        }
+
+        double maxVal = 5; // floor so a flat/quiet line doesn't get blown up by near-zero scaling
+        foreach (var p in pingPts) maxVal = Math.Max(maxVal, p.V);
+        foreach (var p in jitterPts) maxVal = Math.Max(maxVal, p.V);
+        maxVal *= 1.15;
+
+        return (ToMiniPoints(pingPts, maxVal, width), ToMiniPoints(jitterPts, maxVal, width));
+    }
+
+    private static PointCollection ToMiniPoints(List<(double T, double V)> pts, double maxVal, double width)
+    {
+        var pc = new PointCollection();
+        foreach (var (t, v) in pts)
+        {
+            double x = t / MiniChartWindowSeconds * width;
+            double y = MiniChartHeight - Math.Min(1.0, v / maxVal) * MiniChartHeight;
+            pc.Add(new Point(x, y));
+        }
+        return pc;
+    }
+
+    private void MiniSparkCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: AdapterRowViewModel vm } fe)
+        {
+            vm.SparkWidth = fe.ActualWidth;
         }
     }
 

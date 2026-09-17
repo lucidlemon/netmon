@@ -21,6 +21,28 @@ public sealed class AdapterRowViewModel : INotifyPropertyChanged
     private Brush _nowBrush = Brushes.Gray;
     public Brush NowBrush { get => _nowBrush; set { _nowBrush = value; Raise(); } }
 
+    private string _nowJitterMs = "--";
+    public string NowJitterMs { get => _nowJitterMs; set { _nowJitterMs = value; Raise(); } }
+
+    // Loss over a 60s window specifically for the compact card - none of the existing windows
+    // (3s "now", 30s, 1h, session) match what it shows for ping/jitter.
+    private string _loss60 = "0%";
+    public string Loss60 { get => _loss60; set { _loss60 = value; Raise(); } }
+    private Brush _loss60Brush = Brushes.Gray;
+    public Brush Loss60Brush { get => _loss60Brush; set { _loss60Brush = value; Raise(); } }
+
+    // The mini sparkline canvas stretches to fill the compact card, so its actual rendered width
+    // (kept in sync by MainWindow.MiniSparkCanvas_SizeChanged) is what point coordinates scale
+    // against - not a fixed constant. Height stays fixed (MainWindow.MiniChartHeight).
+    public double SparkWidth { get; set; } = 120;
+
+    // Point sets for the compact card's mini sparkline, recomputed every tick from the adapter's
+    // last MiniChartWindowSeconds of samples.
+    private PointCollection _pingSpark = new();
+    public PointCollection PingSpark { get => _pingSpark; set { _pingSpark = value; Raise(); } }
+    private PointCollection _jitterSpark = new();
+    public PointCollection JitterSpark { get => _jitterSpark; set { _jitterSpark = value; Raise(); } }
+
     private string _win30 = "--";
     public string Win30 { get => _win30; set { _win30 = value; Raise(); } }
     private Brush _win30Brush = Brushes.Gray;

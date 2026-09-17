@@ -1,11 +1,18 @@
 <Window x:Class="NetMonGui.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="NetMon — which connection is better?"
         Icon="Assets/icon.ico"
-        Height="900" Width="1360" MinHeight="700" MinWidth="1200"
+        Height="900" Width="1360" MinHeight="220" MinWidth="260"
         Background="#FF1A1A1E" Foreground="#FFE6E6E6"
-        FontFamily="Consolas" FontSize="13">
+        FontFamily="Consolas" FontSize="13"
+        WindowStyle="None" ResizeMode="CanResize"
+        SizeChanged="MainWindow_SizeChanged">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="34" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/>
+    </shell:WindowChrome.WindowChrome>
 
     <Window.Resources>
         <Style TargetType="DataGridColumnHeader">
@@ -71,6 +78,172 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- Custom title bar buttons (WindowStyle="None" + WindowChrome below removes the native
+             ones). Two separate complete styles rather than one shared base + override, since a
+             ControlTemplate.Trigger targeting the inner "Bg" border by name would otherwise fight
+             a Style.Trigger trying to override Background through TemplateBinding. -->
+        <Style x:Key="CaptionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#FFCFCFCF"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#FF2A2A30"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CloseCaptionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#FFCFCFCF"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#FFE0505A"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- The default ComboBox chrome (closed box) and the ComboBoxItem popup both draw against
+             hardcoded theme/system brushes (white popup, glossy light chrome) that Background/
+             Foreground set on the ComboBox element itself don't reach - those only bind partway
+             into the default template. Both need a full custom ControlTemplate, same as
+             PreferButtonStyle/SegmentOptionStyle above, to actually render dark. AllowsTransparency
+             is explicitly off on the popup too, since a transparent/layered popup window can pick up
+             Windows 11's Mica/acrylic backdrop blur, which washed out the selected-row highlight. -->
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Foreground" Value="#FFE6E6E6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Bd" Background="#FF26262C" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FF33333C"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FF2E3B4E"/>
+                                <Setter Property="Foreground" Value="#FFCFE3FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#FF26262C"/>
+            <Setter Property="Foreground" Value="#FFE6E6E6"/>
+            <Setter Property="BorderBrush" Value="#FF3A3A42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton" Focusable="False" ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="#FF26262C" BorderBrush="#FF3A3A42" BorderThickness="1" CornerRadius="3"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <Path Fill="{TemplateBinding Foreground}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  Margin="0,0,10,0" Data="M 0 0 L 4 5 L 8 0 Z"/>
+                            <Popup x:Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="False" Focusable="False" PopupAnimation="None">
+                                <Border x:Name="DropDownBorder" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}" SnapsToDevicePixels="True">
+                                    <ScrollViewer SnapsToDevicePixels="True">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Thin overlay scrollbar: invisible until the mouse is over it (near the right edge),
+             mouse wheel scrolling works regardless. Styling ScrollBar directly (rather than giving
+             ScrollViewer a custom template) reuses ScrollViewer's own default template/PART wiring,
+             so none of its built-in scrolling behavior needs to be reimplemented. -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border Background="#FF5A5A64" CornerRadius="3" Margin="1,0"/>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="1"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <ItemsPanelTemplate x:Key="UniformRowPanelTemplate">
@@ -183,18 +356,104 @@
                 </StackPanel>
             </Border>
         </DataTemplate>
+
+        <!-- Used only below CompactWidthThreshold (see MainWindow_SizeChanged): a one-column,
+             text-first card with dot-leader stat rows and a tiny fixed-size sparkline, for windows
+             too narrow to fit the full card grid and charts. -->
+        <DataTemplate x:Key="MinimalAdapterCardTemplate">
+            <Border Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1" CornerRadius="6"
+                    Margin="0,0,0,8" Padding="10,8">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <TextBlock Text="{Binding Marker}" Foreground="Gold" FontWeight="Bold" FontSize="13"
+                                   Margin="0,0,4,0" VerticalAlignment="Center"/>
+                        <Border Width="8" Height="8" CornerRadius="4" Background="{Binding Color}"
+                                Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+
+                    <DockPanel Margin="0,0,0,2">
+                        <TextBlock DockPanel.Dock="Left" Text="Ping" Foreground="#FF8A8A92" FontSize="11"/>
+                        <TextBlock DockPanel.Dock="Right" Foreground="{Binding NowBrush}" FontSize="11" FontWeight="SemiBold">
+                            <Run Text="{Binding NowMs, Mode=OneWay}"/><Run Text=" ms"/>
+                        </TextBlock>
+                        <TextBlock Text="......................................................................"
+                                   Foreground="#FF3A3A42" FontSize="11" Margin="4,0" ClipToBounds="True"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,0,0,2">
+                        <TextBlock DockPanel.Dock="Left" Text="Jitter" Foreground="#FF8A8A92" FontSize="11"/>
+                        <TextBlock DockPanel.Dock="Right" Foreground="#FFCFCFCF" FontSize="11" FontWeight="SemiBold">
+                            <Run Text="{Binding NowJitterMs, Mode=OneWay}"/><Run Text=" ms"/>
+                        </TextBlock>
+                        <TextBlock Text="......................................................................"
+                                   Foreground="#FF3A3A42" FontSize="11" Margin="4,0" ClipToBounds="True"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="0,0,0,8">
+                        <TextBlock DockPanel.Dock="Left" Text="Loss (60s)" Foreground="#FF8A8A92" FontSize="11"/>
+                        <TextBlock DockPanel.Dock="Right" Foreground="{Binding Loss60Brush}" FontSize="11" FontWeight="SemiBold"
+                                   Text="{Binding Loss60, Mode=OneWay}"/>
+                        <TextBlock Text="......................................................................"
+                                   Foreground="#FF3A3A42" FontSize="11" Margin="4,0" ClipToBounds="True"/>
+                    </DockPanel>
+
+                    <Border Background="#FF16161A" BorderBrush="#FF2A2A30" BorderThickness="1">
+                        <Canvas Height="26" ClipToBounds="True" SizeChanged="MiniSparkCanvas_SizeChanged">
+                            <Polyline Points="{Binding JitterSpark}" Stroke="#FF6E6E76" StrokeThickness="1.2"/>
+                            <Polyline Points="{Binding PingSpark}" Stroke="{Binding Color}" StrokeThickness="1.4"/>
+                        </Canvas>
+                    </Border>
+                    <TextBlock Text="last 60s — ping / jitter" Foreground="#FF6E6E76" FontSize="9" Margin="0,3,0,0"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </Window.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Custom title bar (WindowStyle="None" removed the native one). The whole strip is a
+             WindowChrome drag region by default; only the button panel opts out via
+             IsHitTestVisibleInChrome so clicks reach the buttons instead of starting a drag. -->
+        <Border Grid.Row="0" Background="#FF16161A" BorderBrush="#FF2A2A30" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                    <Image Source="Assets/icon.ico" Width="16" Height="16" Margin="0,0,8,0"/>
+                    <TextBlock Text="NetMon" FontSize="12" Foreground="#FF8A8A92" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="MinimizeButton" Content="&#xE921;" Style="{StaticResource CaptionButtonStyle}"
+                            Click="MinimizeButton_Click" ToolTip="Minimize"/>
+                    <Button x:Name="CloseButton" Content="&#xE8BB;" Style="{StaticResource CloseCaptionButtonStyle}"
+                            Click="CloseButton_Click" ToolTip="Close"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="200"/>
+            <!-- Fixed pixel heights so the charts have real height to draw into, but that also
+                 means collapsing their Border content (compact mode) does NOT free this space -
+                 a Grid row's size is independent of its content's Visibility unless the row itself
+                 is resized too. MainWindow.ApplyCompactMode zeroes these out via x:Name when
+                 compact, which is what actually fixes the empty-scroll-area bug this caused. -->
+            <RowDefinition x:Name="LatencyChartRow" Height="200"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="200"/>
+            <RowDefinition x:Name="JitterChartRow" Height="200"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -202,7 +461,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="False">
+        <DockPanel x:Name="HeaderPanel" Grid.Row="0" Margin="0,0,0,10" LastChildFill="False">
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
                 <TextBlock Text="NetMon" FontSize="20" FontWeight="Bold" Foreground="#FF8FD3FF" VerticalAlignment="Center"/>
                 <TextBlock Text="which connection is better for gaming?" FontSize="12" Foreground="#FF8A8A92" Margin="10,4,0,0" VerticalAlignment="Center"/>
@@ -258,12 +517,16 @@
                       ItemsPanel="{StaticResource UniformRowPanelTemplate}"
                       ItemTemplate="{StaticResource AdapterCardTemplate}"/>
 
-        <TextBlock Grid.Row="3" Margin="2,8,0,0" Foreground="#FF6E6E76" FontSize="11">
+        <!-- Shown instead of AdapterCards below CompactWidthThreshold - see MainWindow_SizeChanged. -->
+        <ItemsControl Grid.Row="2" x:Name="CompactAdapterCards" VerticalAlignment="Top" Visibility="Collapsed"
+                      ItemTemplate="{StaticResource MinimalAdapterCardTemplate}"/>
+
+        <TextBlock x:Name="LegendNoteText" Grid.Row="3" Margin="2,8,0,0" Foreground="#FF6E6E76" FontSize="11">
             ★ = currently the better connection (lowest session avg/jitter/loss score)    [OS] = the connection Windows is currently routing internet traffic through &#8212; these can disagree.
         </TextBlock>
 
         <!-- Latency chart -->
-        <Border Grid.Row="4" Margin="0,12,0,0" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1">
+        <Border x:Name="LatencyChartBorder" Grid.Row="4" Margin="0,12,0,0" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -275,11 +538,11 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="5" Margin="2,6,0,0" Foreground="#FF6E6E76" FontSize="11"
+        <TextBlock x:Name="LatencyCaptionText" Grid.Row="5" Margin="2,6,0,0" Foreground="#FF6E6E76" FontSize="11"
                     Text="Latency over the last 2 minutes, per adapter (ms)."/>
 
         <!-- Jitter chart -->
-        <Border Grid.Row="6" Margin="0,12,0,0" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1">
+        <Border x:Name="JitterChartBorder" Grid.Row="6" Margin="0,12,0,0" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -291,12 +554,12 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="7" Margin="2,6,0,0" Foreground="#FF6E6E76" FontSize="11"
+        <TextBlock x:Name="JitterCaptionText" Grid.Row="7" Margin="2,6,0,0" Foreground="#FF6E6E76" FontSize="11"
                     Text="Jitter over the last 2 minutes, per adapter (ms) — change from one ping to the next."/>
 
         <!-- Extra targets: compare against something other than the default target, e.g. a
              game server's datacenter, side by side with the same adapters above. -->
-        <Border Grid.Row="8" Margin="0,16,0,0" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1" Padding="12">
+        <Border x:Name="ExtraTargetsBorder" Grid.Row="8" Margin="0,16,0,0" Background="#FF1F1F24" BorderBrush="#FF3A3A42" BorderThickness="1" Padding="12">
             <DockPanel LastChildFill="False">
                 <TextBlock DockPanel.Dock="Left" Text="Extra targets:" Foreground="#FF8FD3FF" FontWeight="SemiBold"
                            VerticalAlignment="Center" Margin="0,0,14,0"/>
@@ -396,4 +659,5 @@
         </Border>
     </Grid>
     </ScrollViewer>
+    </Grid>
 </Window>
