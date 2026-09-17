@@ -22,15 +22,30 @@
 		<sdpi-select id="connectionSelect" setting="connection" placeholder="Loading connections…"></sdpi-select>
 	</sdpi-item>
 
-	<sdpi-item label="Metric">
-		<sdpi-select setting="metric" value-type="string">
+	<sdpi-item label="Top metric">
+		<sdpi-select setting="topMetric" value-type="string" default="ping">
 			<option value="ping">Ping</option>
 			<option value="jitter">Jitter</option>
 		</sdpi-select>
 	</sdpi-item>
 
-	<sdpi-item label="Display">
-		<sdpi-select setting="mode" value-type="string" default="text+graph">
+	<sdpi-item label="Top display">
+		<sdpi-select setting="topMode" value-type="string" default="text+graph">
+			<option value="text">Text only</option>
+			<option value="graph">Graph only</option>
+			<option value="text+graph">Text + graph</option>
+		</sdpi-select>
+	</sdpi-item>
+
+	<sdpi-item label="Bottom metric">
+		<sdpi-select setting="bottomMetric" value-type="string" default="jitter">
+			<option value="ping">Ping</option>
+			<option value="jitter">Jitter</option>
+		</sdpi-select>
+	</sdpi-item>
+
+	<sdpi-item label="Bottom display">
+		<sdpi-select setting="bottomMode" value-type="string" default="text+graph">
 			<option value="text">Text only</option>
 			<option value="graph">Graph only</option>
 			<option value="text+graph">Text + graph</option>

@@ -4,6 +4,12 @@ export type Metric = {
 	color: string | null;
 };
 
+/** Recent per-sample history (~1s cadence, most recent last); null entries are failed pings. */
+export type AdapterHistory = {
+	ping: (number | null)[];
+	jitter: (number | null)[];
+};
+
 export type Adapter = {
 	name: string;
 	description: string;
@@ -12,6 +18,7 @@ export type Adapter = {
 	ping: Metric;
 	jitter: Metric;
 	lossPercent: number;
+	history: AdapterHistory;
 };
 
 export type Target = {

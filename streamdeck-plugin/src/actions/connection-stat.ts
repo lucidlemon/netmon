@@ -1,18 +1,21 @@
 import streamDeck, { action, KeyDownEvent, SingletonAction, WillAppearEvent, WillDisappearEvent, DidReceiveSettingsEvent } from "@elgato/streamdeck";
 import { fetchStatus } from "../lib/netmon-api";
-import { renderTile } from "../lib/tile";
+import { renderSingleStat, toImageDataUri, StatMode } from "../lib/tile";
 
 type Settings = {
 	target?: string;
 	connection?: string;
 	metric?: "ping" | "jitter";
+	mode?: StatMode;
 };
 
 const POLL_INTERVAL_MS = 1500;
 
 /**
- * Shows live ping or jitter for one NetMonGui-monitored network connection on a key,
- * color-coded using the same gaming-tier thresholds as the app's own charts.
+ * Shows live ping or jitter for one NetMonGui-monitored network connection on a key, as text,
+ * a trend graph, or both - color-coded using the same gaming-tier thresholds as the app's own
+ * charts. The image carries only the value/graph; identifying text is Stream Deck's own native
+ * title (manifest ShowTitle: true), fully left to the user - see setTitle() below.
  */
 @action({ UUID: "com.danielwinter.netmon.connection-stat" })
 export class ConnectionStatAction extends SingletonAction<Settings> {
@@ -61,47 +64,58 @@ export class ConnectionStatAction extends SingletonAction<Settings> {
 	private async refresh(action: WillAppearEvent<Settings>["action"], settings: Settings): Promise<void> {
 		const connection = settings.connection?.trim();
 		const metric = settings.metric === "jitter" ? "jitter" : "ping";
-		const metricLabel = metric === "ping" ? "PING" : ("JITTER" as const);
+		const mode = settings.mode ?? "text+graph";
+
+		// Left blank by default so the user's own title (if they set one in the Stream Deck UI)
+		// isn't stomped every poll - only set it if we have something more useful to say and the
+		// user hasn't already typed their own title (Stream Deck ignores this call in that case).
+		if (connection) await action.setTitle(connection).catch(() => {});
 
 		try {
 			if (!connection) {
-				await action.setImage(renderTile({ connectionName: "", metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Pick a connection" }));
+				await action.setImage(toImageDataUri(renderSingleStat({ label: "", valueMs: null, unitLabel: "", tier: null, color: null, mode, history: [], statusMessage: "Pick a connection" })));
 				return;
 			}
 
 			const status = await fetchStatus();
 			if (!status) {
-				await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "NetMon offline" }));
+				await action.setImage(toImageDataUri(renderSingleStat({ label: "", valueMs: null, unitLabel: "", tier: null, color: null, mode, history: [], statusMessage: "NetMon offline" })));
 				return;
 			}
 
 			const targetId = settings.target?.trim() || "default";
 			const target = (status.targets ?? []).find((t) => t.id === targetId);
 			if (!target) {
-				await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Target not found" }));
+				await action.setImage(toImageDataUri(renderSingleStat({ label: "", valueMs: null, unitLabel: "", tier: null, color: null, mode, history: [], statusMessage: "Target not found" })));
 				return;
 			}
 
 			const adapter = (target.adapters ?? []).find((a) => a.name === connection);
 			if (!adapter) {
-				await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Not found" }));
+				await action.setImage(toImageDataUri(renderSingleStat({ label: "", valueMs: null, unitLabel: "", tier: null, color: null, mode, history: [], statusMessage: "Not found" })));
 				return;
 			}
 
 			const value = metric === "ping" ? adapter.ping : adapter.jitter;
+			const history = metric === "ping" ? adapter.history?.ping : adapter.history?.jitter;
 			await action.setImage(
-				renderTile({
-					connectionName: adapter.name,
-					metricLabel,
-					valueMs: value.ms,
-					tier: value.tier,
-					color: value.color,
-					targetLabel: target.id === "default" ? undefined : target.label,
-				}),
+				toImageDataUri(
+					renderSingleStat({
+						label: "",
+						valueMs: value.ms,
+						unitLabel: target.id === "default" ? `ms ${metric}` : `ms ${metric} · ${target.label}`,
+						tier: value.tier,
+						color: value.color,
+						mode,
+						history: history ?? [],
+					}),
+				),
 			);
 		} catch (err) {
 			streamDeck.logger.error("ConnectionStatAction.refresh failed", err);
-			await action.setImage(renderTile({ connectionName: connection ?? "", metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Error" })).catch(() => {});
+			await action
+				.setImage(toImageDataUri(renderSingleStat({ label: "", valueMs: null, unitLabel: "", tier: null, color: null, mode, history: [], statusMessage: "Error" })))
+				.catch(() => {});
 		}
 	}
 }
