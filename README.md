@@ -39,7 +39,7 @@ two can disagree, e.g. Windows may default to Ethernet by metric even while
 your hotspot is measurably better, in which case Dota 2/CS2 (and everything
 else) are routing over the worse link without you knowing.
 
-![NetMonGui showing three live connections — Ethernet, Wi-Fi, and an iPhone hotspot — with latency/jitter graphs and per-process bandwidth](docs/screenshot.png)
+![NetMonGui comparing two connections — a wired Ethernet adapter and an iPhone tethered over Ethernet — against a Dota 2 EU East server, with latency/jitter graphs below](docs/screenshot.png)
 
 **Admin rights**: NetMon runs unprivileged by default and never asks for
 elevation on its own. It only prompts for admin (a UAC dialog) when *you*
@@ -236,6 +236,8 @@ small loopback-only JSON API the app exposes automatically
 — no configuration needed on the app side, just have it running. See
 [streamdeck-plugin/README.md](streamdeck-plugin/README.md) for building and
 installing it.
+
+![Stream Deck showing four NetMon keys — ping and jitter graphs for Ethernet and an iPhone hotspot, each with a live value and trend sparkline](docs/streamdeck.png)
 
 ## Console version (netmon.ps1)
 
