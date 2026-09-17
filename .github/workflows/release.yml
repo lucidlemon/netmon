@@ -68,3 +68,40 @@ jobs:
           gh release upload v${{ steps.get-version.outputs.version }}
           "publish/portable/NetMonGui-portable-v${{ steps.get-version.outputs.version }}.exe"
           --repo ${{ github.repository }}
+
+      - name: Read Stream Deck plugin version from manifest
+        id: get-sdplugin-version
+        shell: bash
+        run: |
+          echo "version=$(jq -r '.Version' streamdeck-plugin/com.danielwinter.netmon.sdPlugin/manifest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build Stream Deck plugin
+        working-directory: streamdeck-plugin
+        run: |
+          npm ci
+          npm run build
+
+      - name: Pack Stream Deck plugin (.streamDeckPlugin)
+        working-directory: streamdeck-plugin
+        run: |
+          npm install -g @elgato/cli
+          streamdeck pack com.danielwinter.netmon.sdPlugin -f -o dist
+
+      - name: Rename Stream Deck plugin with version
+        shell: bash
+        run: >
+          cp streamdeck-plugin/dist/com.danielwinter.netmon.streamDeckPlugin
+          "streamdeck-plugin/dist/NetMon-StreamDeck-Plugin-v${{ steps.get-sdplugin-version.outputs.version }}.streamDeckPlugin"
+
+      - name: Attach the Stream Deck plugin to the same release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release upload v${{ steps.get-version.outputs.version }}
+          "streamdeck-plugin/dist/NetMon-StreamDeck-Plugin-v${{ steps.get-sdplugin-version.outputs.version }}.streamDeckPlugin"
+          --repo ${{ github.repository }}

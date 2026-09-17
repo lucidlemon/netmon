@@ -80,6 +80,11 @@ Grab the latest build from **[Releases](https://github.com/lucidlemon/netmon/rel
   nothing written outside the folder it's in. Doesn't auto-update — grab a
   new one from Releases when you want the latest.
 
+Every release also attaches **`NetMon-StreamDeck-Plugin-vX.Y.Z.streamDeckPlugin`**
+— see [the Stream Deck plugin](streamdeck-plugin/README.md) if you have a
+Stream Deck and want live ping/jitter on a key; just double-click the file to
+install it, no Node.js or building required.
+
 Or build it yourself locally — see [Building](#building).
 
 ### Adapter priority

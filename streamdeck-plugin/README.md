@@ -30,6 +30,11 @@ or after `streamdeck restart com.danielwinter.netmon` if you have the
 NetMonGui must be running for the key to show real data (it'll show an
 "offline" tile otherwise).
 
+**Easiest — prebuilt package:** grab the `NetMon-StreamDeck-Plugin-v*.streamDeckPlugin`
+file from the [latest release](../../releases/latest) and double-click it —
+Stream Deck installs it automatically. This is built and attached to every
+NetMonGui release, so you don't need Node.js or this repo at all.
+
 **Manual (no CLI needed):** copy or symlink the whole
 `com.danielwinter.netmon.sdPlugin` folder into your Stream Deck plugins
 directory, then restart the Stream Deck app:
