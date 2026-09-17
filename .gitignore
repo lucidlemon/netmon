@@ -22,6 +22,8 @@ publish/
 .claude/
 
 # Stream Deck plugin - Node deps (its built bundle already matches bin/ above),
+# packed .streamDeckPlugin output (CI builds this for releases),
 # plus the SDK's own runtime log files when run/tested locally
 node_modules/
+streamdeck-plugin/dist/
 streamdeck-plugin/com.danielwinter.netmon.sdPlugin/logs/

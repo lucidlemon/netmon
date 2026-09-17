@@ -209,9 +209,33 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
                 <TextBlock Text="Target:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FF8A8A92"/>
-                <TextBox x:Name="TargetBox" Width="110" Text="1.1.1.1" VerticalContentAlignment="Center"
-                         Background="#FF26262C" Foreground="#FFE6E6E6" BorderBrush="#FF3A3A42" Padding="4,3"/>
-                <Button x:Name="ApplyTargetButton" Content="Apply" Margin="6,0,18,0" Padding="16,3"
+                <ComboBox x:Name="TargetPresetCombo" Width="250" VerticalAlignment="Center" Margin="0,0,6,0"
+                          Background="#FF26262C" Foreground="#FFE6E6E6" BorderBrush="#FF3A3A42"
+                          SelectionChanged="TargetPresetCombo_SelectionChanged">
+                    <ComboBoxItem Content="Cloudflare (1.1.1.1)" Tag="1.1.1.1"/>
+                    <ComboBoxItem Content="Google (8.8.8.8)" Tag="8.8.8.8"/>
+                    <ComboBoxItem Content="Dota 2 EU East (Vienna)" Tag="185.25.182.1"/>
+                    <ComboBoxItem Content="Dota 2 EU West (Luxembourg)" Tag="146.66.158.1"/>
+                    <ComboBoxItem Content="Dota 2 Russia (Stockholm)" Tag="185.25.180.1"/>
+                    <ComboBoxItem Content="Dota 2 Europe East (Vienna, Austria)" Tag="146.66.155.36"/>
+                    <ComboBoxItem Content="Dota 2 Europe West (Amsterdam, Netherlands)" Tag="155.133.248.53"/>
+                    <ComboBoxItem Content="Dota 2 Europe West (Madrid, Spain)" Tag="155.133.246.66"/>
+                    <ComboBoxItem Content="Dota 2 Europe (Warsaw, Poland)" Tag="155.133.248.53"/>
+                    <ComboBoxItem Content="Dota 2 Europe (Stockholm, Sweden)" Tag="155.133.246.66"/>
+                    <ComboBoxItem Content="Dota 2 US West (Bellevue, WA)" Tag="155.133.253.38"/>
+                    <ComboBoxItem Content="Dota 2 US West (Los Angeles, CA)" Tag="155.133.232.98"/>
+                    <ComboBoxItem Content="Dota 2 US West (Salt Lake City, UT)" Tag="155.133.235.34"/>
+                    <ComboBoxItem Content="Dota 2 West Asia (Bengaluru, India)" Tag="155.133.233.99"/>
+                    <ComboBoxItem Content="Dota 2 East Asia (Tokyo, Japan)" Tag="155.133.239.25"/>
+                    <ComboBoxItem Content="Dota 2 East Asia (Chiyoda, Japan)" Tag="155.133.245.35"/>
+                    <ComboBoxItem Content="Dota 2 South East Asia (Singapore)" Tag="103.10.124.44"/>
+                    <ComboBoxItem Content="Dota 2 Oceania (Sydney, Australia)" Tag="103.10.125.146"/>
+                    <ComboBoxItem Content="Dota 2 Africa (Johannesburg, South Africa)" Tag="155.133.238.163"/>
+                    <ComboBoxItem x:Name="CustomTargetOption" Content="Custom…"/>
+                </ComboBox>
+                <TextBox x:Name="TargetBox" Width="110" Text="1.1.1.1" Visibility="Collapsed" VerticalContentAlignment="Center"
+                         Background="#FF26262C" Foreground="#FFE6E6E6" BorderBrush="#FF3A3A42" Padding="4,3" Margin="0,0,6,0"/>
+                <Button x:Name="ApplyTargetButton" Content="Apply" Margin="0,0,18,0" Padding="16,3" Visibility="Collapsed"
                         Style="{StaticResource PreferButtonStyle}" Click="ApplyTargetButton_Click"/>
                 <CheckBox x:Name="PerProcessCheckBox" Content="Per-process bandwidth" VerticalAlignment="Center"
                           Foreground="#FF8A8A92" Margin="0,0,18,0"

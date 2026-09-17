@@ -80,6 +80,11 @@ Grab the latest build from **[Releases](https://github.com/lucidlemon/netmon/rel
   nothing written outside the folder it's in. Doesn't auto-update — grab a
   new one from Releases when you want the latest.
 
+Every release also attaches **`NetMon-StreamDeck-Plugin-vX.Y.Z.streamDeckPlugin`**
+— see [the Stream Deck plugin](streamdeck-plugin/README.md) if you have a
+Stream Deck and want live ping/jitter on a key; just double-click the file to
+install it, no Node.js or building required.
+
 Or build it yourself locally — see [Building](#building).
 
 ### Adapter priority
@@ -106,13 +111,18 @@ Set-NetIPInterface -InterfaceAlias "<adapter name>" -AutomaticMetric Enabled
 
 ### Extra targets
 
-The default target (top right, `1.1.1.1` by default) is a general internet
-reachability check — it won't necessarily match what a specific game reports.
-Dota 2, CS2, etc. don't ping over ICMP at all: they go through Valve's Steam
-Datagram Relay, a UDP relay network that can pick a different path (and
-congest independently of) whatever route ICMP takes to some generic Valve IP.
-So "add a Valve target" is a useful comparison signal, not a guarantee it'll
-match the in-game number exactly.
+The default target (top right) is a general internet reachability check — it
+won't necessarily match what a specific game reports. The dropdown ships with
+a few presets (Cloudflare `1.1.1.1`, Google `8.8.8.8`, and a handful of Dota 2
+Steam Datagram Relay IPs by region) plus a **Custom…** option that reveals a
+text box for typing in any host or IP. Dota 2, CS2, etc. don't ping over ICMP
+at all: they go through Valve's Steam Datagram Relay, a UDP relay network
+that can pick a different path (and congest independently of) whatever route
+ICMP takes to some generic Valve IP. So picking a Valve target is a useful
+comparison signal, not a guarantee it'll match the in-game number exactly —
+and the regional IPs beyond the original three (Vienna/Luxembourg/Stockholm)
+were sourced from a community list, not verified against Valve directly, so
+treat them as best-effort.
 
 Under the charts, **"Extra targets"** lets you add named targets (label +
 host/IP) that get pinged in parallel with the default one, from the same
