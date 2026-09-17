@@ -90,6 +90,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         AdapterCards.ItemsSource = _rowsView;
         ProcessGrid.ItemsSource = _processRows;
+        TargetPresetCombo.SelectedIndex = 0;
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(IntervalMs) };
         _timer.Tick += Timer_Tick;
@@ -122,6 +123,29 @@ public partial class MainWindow : Window
             UpdateStatusText.Text = msg;
             UpdateStatusText.Visibility = Visibility.Visible;
         }));
+    }
+
+    private void TargetPresetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TargetPresetCombo.SelectedItem is not ComboBoxItem item) return;
+
+        if (item.Tag is string host)
+        {
+            TargetBox.Visibility = Visibility.Collapsed;
+            ApplyTargetButton.Visibility = Visibility.Collapsed;
+            TargetBox.Text = host;
+            _target = host;
+            StatusText.Text = $"Target changed to {_target}.";
+        }
+        else
+        {
+            // "Custom…" - reveal the text box for manual entry.
+            TargetBox.Visibility = Visibility.Visible;
+            ApplyTargetButton.Visibility = Visibility.Visible;
+            TargetBox.Text = _target;
+            TargetBox.Focus();
+            TargetBox.SelectAll();
+        }
     }
 
     private void ApplyTargetButton_Click(object sender, RoutedEventArgs e)
