@@ -120,7 +120,12 @@ public partial class MainWindow : Window
     {
         _startTime = DateTime.Now;
         _lastDiscovery = DateTime.MinValue;
-        _statsApi.Start();
+        var apiError = _statsApi.Start();
+        if (apiError != null)
+        {
+            ApiWarningText.Text = "⚠ " + apiError;
+            ApiWarningText.Visibility = Visibility.Visible;
+        }
         SyncMonitors();
         _lastDiscovery = DateTime.Now;
         _timer.Start();

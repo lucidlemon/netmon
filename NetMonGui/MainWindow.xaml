@@ -510,6 +510,9 @@
                        Foreground="#FF8A8A92"/>
             <TextBlock DockPanel.Dock="Right" x:Name="UpdateStatusText" Text=""
                        Foreground="#FF8FD3FF" Visibility="Collapsed"/>
+            <TextBlock DockPanel.Dock="Right" x:Name="ApiWarningText" Text="" Margin="0,0,14,0"
+                       Foreground="#FFE8D34F" Visibility="Collapsed"
+                       ToolTip="The Stream Deck plugin (and any other local tool) reads live stats from this API - it won't be able to connect until only one NetMon instance is running."/>
         </DockPanel>
 
         <!-- Adapter cards - one per active connection, always splitting the available width evenly -->

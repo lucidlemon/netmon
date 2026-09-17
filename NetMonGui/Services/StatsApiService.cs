@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -50,7 +49,14 @@ public sealed class StatsApiService : IDisposable
     private volatile StatusDto? _latest;
     private CancellationTokenSource? _cts;
 
-    public void Start()
+    /// <summary>
+    /// Starts the API. Returns null on success, or an error message on failure - most likely
+    /// another NetMonGui instance already owns the port, since only one process can bind it.
+    /// Failure is non-fatal to the app itself (it works fine without the API), but callers should
+    /// surface the message somewhere, since a silent failure here previously left users unable to
+    /// tell why the Stream Deck plugin couldn't connect.
+    /// </summary>
+    public string? Start()
     {
         try
         {
@@ -59,14 +65,14 @@ public sealed class StatsApiService : IDisposable
         }
         catch (Exception ex)
         {
-            // Most likely another NetMonGui instance already owns the port. Non-fatal:
-            // the app works fine without the API, callers just won't get live data.
             Debug.WriteLine($"StatsApiService: failed to start on port {Port}: {ex.Message}");
-            return;
+            return $"Local API (port {Port}) didn't start - probably another NetMon instance is already running. " +
+                   "The Stream Deck plugin won't be able to connect until only one is open.";
         }
 
         _cts = new CancellationTokenSource();
         _ = Task.Run(() => AcceptLoopAsync(_cts.Token));
+        return null;
     }
 
     public void UpdateSnapshot(StatusDto snapshot) => _latest = snapshot;
@@ -104,10 +110,14 @@ public sealed class StatsApiService : IDisposable
                 return;
             }
 
-            var snapshot = _latest;
-            byte[] body = snapshot is null
-                ? Encoding.UTF8.GetBytes("{}")
-                : JsonSerializer.SerializeToUtf8Bytes(snapshot, JsonOptions);
+            // A bare "{}" here (the previous fallback) is a different shape than StatusDto - every
+            // client has to special-case it, and the Stream Deck plugin didn't: it read .targets off
+            // that empty object during the ~1s window before the first tick populates _latest,
+            // uncaught-TypeError'd on undefined.find(), and took the whole plugin process down with
+            // it. A real (empty) StatusDto keeps the shape consistent so clients don't need to know
+            // about this window at all.
+            var snapshot = _latest ?? new StatusDto(DateTime.UtcNow, new List<TargetStatusDto>(), new List<ThresholdDto>(), new List<ThresholdDto>());
+            byte[] body = JsonSerializer.SerializeToUtf8Bytes(snapshot, JsonOptions);
 
             res.ContentType = "application/json; charset=utf-8";
             res.ContentLength64 = body.Length;

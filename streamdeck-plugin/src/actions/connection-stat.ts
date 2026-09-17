@@ -1,4 +1,4 @@
-import { action, KeyDownEvent, SingletonAction, WillAppearEvent, WillDisappearEvent, DidReceiveSettingsEvent } from "@elgato/streamdeck";
+import streamDeck, { action, KeyDownEvent, SingletonAction, WillAppearEvent, WillDisappearEvent, DidReceiveSettingsEvent } from "@elgato/streamdeck";
 import { fetchStatus } from "../lib/netmon-api";
 import { renderTile } from "../lib/tile";
 
@@ -51,45 +51,57 @@ export class ConnectionStatAction extends SingletonAction<Settings> {
 		}
 	}
 
+	// A poll runs unattended every 1.5s and setImage() failing quietly is fine (transient
+	// network hiccup, NetMon restarting), but anything thrown here is otherwise UNCAUGHT -
+	// Node treats that as fatal and kills the whole plugin process, taking every other key
+	// using this plugin down with it (this is exactly how NetMon's own {} fallback response
+	// - status.targets undefined - used to crash the plugin permanently on startup). Guard
+	// against unexpected shapes explicitly and belt-and-suspenders the whole thing in a
+	// try/catch so a future surprise degrades to one "Error" tile instead of a dead process.
 	private async refresh(action: WillAppearEvent<Settings>["action"], settings: Settings): Promise<void> {
 		const connection = settings.connection?.trim();
 		const metric = settings.metric === "jitter" ? "jitter" : "ping";
 		const metricLabel = metric === "ping" ? "PING" : ("JITTER" as const);
 
-		if (!connection) {
-			await action.setImage(renderTile({ connectionName: "", metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Pick a connection" }));
-			return;
-		}
+		try {
+			if (!connection) {
+				await action.setImage(renderTile({ connectionName: "", metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Pick a connection" }));
+				return;
+			}
 
-		const status = await fetchStatus();
-		if (!status) {
-			await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "NetMon offline" }));
-			return;
-		}
+			const status = await fetchStatus();
+			if (!status) {
+				await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "NetMon offline" }));
+				return;
+			}
 
-		const targetId = settings.target?.trim() || "default";
-		const target = status.targets.find((t) => t.id === targetId);
-		if (!target) {
-			await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Target not found" }));
-			return;
-		}
+			const targetId = settings.target?.trim() || "default";
+			const target = (status.targets ?? []).find((t) => t.id === targetId);
+			if (!target) {
+				await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Target not found" }));
+				return;
+			}
 
-		const adapter = target.adapters.find((a) => a.name === connection);
-		if (!adapter) {
-			await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Not found" }));
-			return;
-		}
+			const adapter = (target.adapters ?? []).find((a) => a.name === connection);
+			if (!adapter) {
+				await action.setImage(renderTile({ connectionName: connection, metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Not found" }));
+				return;
+			}
 
-		const value = metric === "ping" ? adapter.ping : adapter.jitter;
-		await action.setImage(
-			renderTile({
-				connectionName: adapter.name,
-				metricLabel,
-				valueMs: value.ms,
-				tier: value.tier,
-				color: value.color,
-				targetLabel: target.id === "default" ? undefined : target.label,
-			}),
-		);
+			const value = metric === "ping" ? adapter.ping : adapter.jitter;
+			await action.setImage(
+				renderTile({
+					connectionName: adapter.name,
+					metricLabel,
+					valueMs: value.ms,
+					tier: value.tier,
+					color: value.color,
+					targetLabel: target.id === "default" ? undefined : target.label,
+				}),
+			);
+		} catch (err) {
+			streamDeck.logger.error("ConnectionStatAction.refresh failed", err);
+			await action.setImage(renderTile({ connectionName: connection ?? "", metricLabel, valueMs: null, tier: null, color: null, statusMessage: "Error" })).catch(() => {});
+		}
 	}
 }
