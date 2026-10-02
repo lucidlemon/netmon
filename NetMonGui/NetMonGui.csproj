@@ -42,7 +42,7 @@
   <ItemGroup>
     <PackageReference Include="System.Management" Version="10.0.12" />
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.2.6" />
-    <PackageReference Include="Velopack" Version="1.2.0" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
 
   <ItemGroup>
